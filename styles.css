@@ -54,15 +54,15 @@ body {
 
 .input-group label {
     margin-bottom: 2px;
-    font-size: 11px;
+    font-size: 9px;
 }
 
 .input-group input {
-    padding: 2px;
-    font-size: 11px;
+    padding: 1px;
+    font-size: 9px;
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid #ccc;
-    border-radius: 3px;
+    border-radius: 2px;
     max-width: 93%;
 }
 
