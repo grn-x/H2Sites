@@ -1,0 +1,101 @@
+body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #f0f0f0;
+}
+
+.map-container {
+    position: relative;
+    width: 90vw;
+    max-width: 1200px;
+    aspect-ratio: 16 / 9;
+    background: url('PlakatKabeljau.png') no-repeat center center;
+    background-size: contain;
+}
+
+.interactive-field {
+    position: absolute;
+    background: rgba(0, 123, 255, 0.5);
+    border: 2px solid white;
+    cursor: pointer;
+    padding: 5px;
+    font-size: 12px;
+    color: white;
+}
+
+.constants-field {
+    position: absolute;
+    background: rgba(255, 0, 221, 0.5);
+    border: 2px solid #5a5a5a;
+    cursor: pointer;
+    padding: 5px;
+    font-size: 12px;
+    color: white;
+}
+
+.results-field {
+    position: absolute;
+    background: rgba(39, 214, 152, 0.5);
+    border: 2px solid #331515;
+    cursor: pointer;
+    padding: 5px;
+    font-size: 12px;
+    color: white;
+}
+
+.input-group {
+    margin: 5px 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.input-group label {
+    margin-bottom: 2px;
+    font-size: 11px;
+}
+
+.input-group input {
+    padding: 2px;
+    font-size: 11px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    max-width: 93%;
+}
+
+
+/* hide number input spinner buttons */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type=number] {
+    -moz-appearance: textfield; /* Firefox */
+    appearance: textfield; /* test this */
+
+    border: 1px solid rgba(0,0,0,0.2);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: 'Arial', sans-serif;
+    background-color: rgba(255,255,255,0.9);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+input[type=number]:focus {
+    outline: none;
+    border-color: rgba(0, 123, 255, 0.5);
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+}
+
+.input-group label {
+    color: rgba(255,255,255,0.8);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    margin-bottom: 3px;
+    font-weight: bold;
+}
