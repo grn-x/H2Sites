@@ -1,62 +1,5 @@
 const DEBUG_MODE = false;
 
-//class to manage the fields and their updates
-/*class BaseField {
-    constructor(label, value, onUpdate) {
-        this.label = label;
-        this.value = value;
-        this.onUpdate = onUpdate || (() => {});
-        this.element = this.createElement();
-        this.next = null; // Circular linked list reference
-    }
-
-    createElement() {
-        const container = document.createElement('div');
-        container.className = 'input-group';
-
-        const labelElement = document.createElement('label');
-        labelElement.textContent = this.label;
-
-        this.input = document.createElement('input');
-        this.input.type = 'number';
-        this.input.value = this.value;
-        this.input.style.width = '80px';
-
-        this.input.addEventListener('change', (e) => this.updateValue(e.target.value));
-
-        container.appendChild(labelElement);
-        container.appendChild(this.input);
-        return container;
-    }
-
-    updateValue(newValue) {
-        this.value = parseFloat(newValue);
-        this.onUpdate(this.value); // Call external update function if provided
-        if (this.next) {
-            this.next.notifyUpdate(); // Propagate update in the loop
-        }
-    }
-
-    notifyUpdate() {
-        console.log(`"${this.label}" updated to ${this.value}` , this);
-    }
-
-    notifyNeighbors(caller) {
-        this.notifyUpdate();
-        if (this.next && this.next !== caller) {
-            this.next.notifyNeighbors();
-        }else{
-            //exit loop
-        }
-    }
-
-    insertAfter(newNode) {
-        newNode.next = this.next;
-        this.next = newNode;
-    }
-}
-*/
-
 
 let constants = {
     dieselToKWh: 10.5,      // kWh per liter of diesel
@@ -161,104 +104,6 @@ function createInputField(label, value, onChange, options = {}) {
 }
 */
 
-class BaseField {
-    constructor(label, value, updateCallback) {
-        this.label = label;
-        this.value = value;
-        this.updateCallback = updateCallback || (() => {});
-        this.element = this.createElement();
-        this.next = null; // For linked loop
-    }
-
-    createElement() {
-        const container = document.createElement('div');
-        container.className = 'input-group';
-
-        const labelElement = document.createElement('label');
-        labelElement.textContent = this.label;
-
-        this.input = document.createElement('input');
-        this.input.type = 'number';
-        this.input.value = this.value;
-        this.input.style.width = '93%';
-        this.input.addEventListener('change', (e) => this.updateValue(e.target.value));
-
-        container.appendChild(labelElement);
-        container.appendChild(this.input);
-        return container;
-    }
-
-    updateValue(newValue) {
-        this.value = parseFloat(newValue);
-        this.updateCallback(this.value);
-        if (this.next) {
-            this.next.notifyUpdate();
-        }
-    }
-
-    notifyUpdate() {
-        console.log(`Updated: ${this.label} -> ${this.value}`);
-    }
-
-    insertAfter(newNode) {
-        newNode.next = this.next;
-        this.next = newNode;
-    }
-}
-
-
-
-
-
-class BaseClass {
-    constructor(querySelectorStr, valueFields, updateCallback) {
-        this.parentField = document.querySelector('.interactive-field[data-info="Trawler Info"]');
-        this.value = value;
-        this.updateCallback = updateCallback || (() => {});
-        this.element = this.createElement();
-        this.next = null; // For linked loop
-    }
-
-    createCommonField(htmlElement){
-        //creates kwh and h2 field, common for every element
-    }
-
-    createElement() {
-        const container = document.createElement('div');
-        container.className = 'input-group';
-
-        const labelElement = document.createElement('label');
-        labelElement.textContent = this.label;
-
-        this.input = document.createElement('input');
-        this.input.type = 'number';
-        this.input.value = this.value;
-        this.input.style.width = '93%';
-        this.input.addEventListener('change', (e) => this.updateValue(e.target.value));
-
-        container.appendChild(labelElement);
-        container.appendChild(this.input);
-        return container;
-    }
-
-    updateValue(newValue) {
-        this.value = parseFloat(newValue);
-        this.updateCallback(this.value);
-        if (this.next) {
-            this.next.notifyUpdate();
-        }
-    }
-
-    notifyUpdate() {
-        console.log(`Updated: ${this.label} -> ${this.value}`);
-    }
-
-    insertAfter(newNode) {
-        newNode.next = this.next;
-        this.next = newNode;
-    }
-}
-
 //will contain a list of lists
 //inner list are all of the variables necessary for an input
 //[label:Str, defaultVal:int, ratio:float(optional), currentVal:float, htmlElement:HTMLElement(will be set by the baseclass itsef)]
@@ -342,7 +187,7 @@ class BaseClassStripped {
 
         const labelElement = document.createElement('label');
         labelElement.textContent = label;
-        container.labelElement = labelElement; // Store the label element in the container
+        container.labelElement = labelElement; // Store the label element in the container under the labelElement property
 
 
         const defaultValInput = document.createElement('input');
@@ -368,11 +213,15 @@ class BaseClassStripped {
 
     updateValue(htmlElement) {
         this.preUpdate(htmlElement);
+        //this.recalculate();
     }
 
     preUpdate(changedElement){
-       const newMass = this.updaterMethod(this.dataset, changedElement);
-       this.updateNeighbors(newMass, this);
+        console.warn('preupdate start');
+       const newMass = this.updaterMethod(this.dataset, changedElement, 0);
+       this.updateNeighbors(0, this);
+         //this.updateNeighborsDataset(newMass, this.dataset);
+         console.log('preupdate end');
 
     }
 
@@ -381,10 +230,38 @@ class BaseClassStripped {
     }
 
     updateNeighbors(newMass, caller){
-        if (this.next && this.next !== caller) {
-            this.next.updateValue(newMass);
+        console.log('compare this to caller', this.toString(), caller.toString());
+        console.log(this === caller);
+        console.log(this, caller);
+        console.warn(this.dataset.getHtmlElement(0).labelElement.textContent , caller.dataset.getHtmlElement(0).labelElement.textContent);
+        console.log('update end');
+        if(!this.next){
+            console.log('no next', this.toString()); //shouldnt happen since closed loop structure
+            return;
+        }
+        if (this.next !== caller) {
+            this.updaterMethod(this.dataset, null, newMass);
             this.next.updateNeighbors(newMass, caller);
         }else{
+            console.log('loop ended');
+            //exit loop
+        }
+    }
+
+    updateNeighborsDataset(newMass, callerDTO){
+        console.log('compare this to caller', this.dataset.toString(), callerDTO.toString());
+        console.log(this.dataset === callerDTO);
+        console.log(this.dataset, callerDTO);
+        console.log('update end');
+        if(!this.next){
+            console.log('no next', this.toString()); //shouldnt happen since closed loop structure
+            return;
+        }
+        if (this.next.dataset !== callerDTO) {
+            this.next.updateValue(this.dataset, null, newMass);
+            this.next.updateNeighbors(newMass, callerDTO);
+        }else{
+            console.log('loop ended');
             //exit loop
         }
     }
@@ -393,9 +270,18 @@ class BaseClassStripped {
         console.log(`Updated: ${this.label} -> ${this.value}`);
     }
 
-    insertAfter(newNode) {
+    /*insertAfter(newNode) { //confusing name
         newNode.next = this.next;
         this.next = newNode;
+    } */
+
+    insertBefore(newNode) {
+        newNode.next = this;
+        this.next = newNode
+    }
+
+    toString(){
+        return this.dataset.toString();
     }
 }
 
@@ -458,11 +344,12 @@ function calculateHydrogen(dieselLiters) {
         (e) => updateConstants('kWhToHydrogen', e.target.value)));
 }*/
 
+//[label:Str, defaultVal:int, ratio:float(optional), currentVal:float, htmlElement:HTMLElement(will be set by the baseclass itsef)]
 
 function initializeFields() {
     const trawler = new BaseClassStripped('.interactive-field[data-info="Trawler Info"]', new DTO([
-        ['Cod (tons):', constants.values.trawler.defaultCodCatch, null, null, null],
-        ['Diesel (L):', constants.values.trawler.defaultDieselConsumption, null, null, null],
+        ['Cod (tons):', constants.values.trawler.defaultCodCatch, constants.values.trawler.defaultCodCatch/constants.values.trawler.defaultDieselConsumption, null, null], //ratio is codTons/dieselLiters
+        ['Diesel (L):', constants.values.trawler.defaultDieselConsumption, null, null, null], //ratio is dieselLiters/kwh set by the constants object
         ['kWh:', 0, null, null, null],
         ['H₂ (tons):', 0, null, null, null]
     ]), updateTrawlerCalculations);
@@ -480,12 +367,16 @@ function initializeFields() {
     ]), updateTransportCalculations);
 
     const coldStorage = new BaseClassStripped('.interactive-field[data-info="Kühlhaus Info"]', new DTO([
+        ['Days:', constants.values.coldStorage.days, null, null, null],
         ['kWh/day:', constants.values.coldStorage.kWhPerDay, null, null, null],
-        ['Days:', constants.values.coldStorage.days, null, null, null]
+        ['H₂ (tons):', 0, null, null, null]
+
     ]), updateColdStorageCalculations);
 
     const supermarket = new BaseClassStripped('.interactive-field[data-info="Supermarkt Info"]', new DTO([
-        ['kWh/day:', constants.values.supermarket.minKWh, null, null, null]
+        ['Days:', constants.values.coldStorage.days, null, null, null],
+        ['kWh/day:', constants.values.supermarket.minKWh, null, null, null],
+        ['H₂ (tons):', 0, null, null, null]
     ]), updateSupermarketCalculations);
 
     const constantsField = new BaseClassStripped('.constants-field', new DTO([
@@ -521,18 +412,47 @@ function initializeFields() {
         return container;
     };
     const resultsField = new BaseClassStripped('.results-field', new DTO([
+        ['Total kWh:', 0, null, null, null],
         ['Total H₂ (tons):', 0, null, null, null]
     ]), updateResults);
     BaseClassStripped.prototype.createElement = originalUpdateValue;
 
 
-    constantsField.insertAfter(trawler);
+    /*constantsField.insertAfter(trawler);
     trawler.insertAfter(harbor);
     harbor.insertAfter(transport);
     transport.insertAfter(coldStorage);
     coldStorage.insertAfter(supermarket);
     supermarket.insertAfter(constantsField);
     constantsField.insertAfter(resultsField);
+    resultsField.insertAfter(constantsField);
+
+    trawler.insertAfter(constantsField);
+    harbor.insertAfter(trawler);
+    transport.insertAfter(harbor);
+    coldStorage.insertAfter(transport);
+    supermarket.insertAfter(coldStorage);
+    resultsField.insertAfter(supermarket);
+    constantsField.insertAfter(resultsField);*/
+
+
+
+    /*resultsField.insertBefore(supermarket);
+    supermarket.insertBefore(coldStorage);
+    coldStorage.insertBefore(transport);
+    transport.insertBefore(harbor);
+    harbor.insertBefore(trawler);
+    trawler.insertBefore(constantsField);
+    constantsField.insertBefore(resultsField);*/
+
+    resultsField.insertBefore(constantsField);
+    constantsField.insertBefore(trawler);
+    trawler.insertBefore(transport);
+    transport.insertBefore(resultsField);
+
+
+
+
 
 
 
@@ -597,46 +517,96 @@ function initializeFields_dpr() {
 
 
 // update functions for each section, change later to oop model with self referencing field managing objects
-function updateTrawlerCalculations(dto, changedElement = null) {
-    console.log(dto.toString());
+function updateTrawlerCalculations(dto, changedElement = null, newMass) {
+    if(changedElement===null)console.log('changed different element');
+    const codTons = dto.getHtmlElement(0);
+    const dieselLiters = dto.getHtmlElement(1);
+    const kWh = dto.getHtmlElement(2);
+    const hydrogen = dto.getHtmlElement(3);
+
+    console.log('update trawler',
+        `\nLabel + Value: ${codTons.labelElement.textContent}; ${codTons.querySelector('input').value}`,
+        `\nLabel + Value: ${dieselLiters.labelElement.textContent}; ${dieselLiters.querySelector('input').value}`,
+        `\nLabel + Value: ${kWh.labelElement.textContent}; ${kWh.querySelector('input').value}`,
+        `\nLabel + Value: ${hydrogen.labelElement.textContent};  ${hydrogen.querySelector('input').value}`
+    );
+    /*console.log(dto.toString());
     dto.foreachValue().forEach(({ label, defaultVal, ratio, currentVal, htmlElement }) => {
         if(htmlElement === changedElement){
             console.log('changed element');
         }else{
         console.log('not found', label, defaultVal, ratio, currentVal, htmlElement);
         }
-    });
+    });*/
 }
 
-function updateHarborCalculations(kWh) {
-    if (kWh) constants.defaultValues.harbor.minKWh = parseFloat(kWh);
+function updateHarborCalculations(dto, changedElement = null, newMass) {
+    if(changedElement===null)console.log('changed different element');
+    const kWh = dto.getHtmlElement(0);
+    const hydrogen = dto.getHtmlElement(1);
 
-}
+    console.log('update harbor',
+        `\nLabel + Value: ${kWh.labelElement.textContent}; ${kWh.querySelector('input').value}`,
+        `\nLabel + Value: ${hydrogen.labelElement.textContent};  ${hydrogen.querySelector('input').value}`
+    );
 
-function updateTransportCalculations(trucks, dieselConsumption) {
-    if (trucks) constants.defaultValues.transport.trucks = parseFloat(trucks);
-    if (dieselConsumption) constants.defaultValues.transport.dieselPer100km = parseFloat(dieselConsumption);
-
-}
-
-function updateColdStorageCalculations(kWhPerDay, days) {
-    if (kWhPerDay) constants.defaultValues.coldStorage.kWhPerDay = parseFloat(kWhPerDay);
-    if (days) constants.defaultValues.coldStorage.days = parseFloat(days);
 
 }
 
-function updateSupermarketCalculations(kWh) {
-    if (kWh) constants.defaultValues.supermarket.minKWh = parseFloat(kWh);
+function updateTransportCalculations(dto, changedElement = null, newMass) {
+    if(changedElement===null)console.log('changed different element');
+    const trucks = dto.getHtmlElement(0);
+    const distance = dto.getHtmlElement(1);
+    const kWh = dto.getHtmlElement(2);
+    const hydrogen = dto.getHtmlElement(3);
+
+    console.log('update transport',
+        `\nLabel + Value: ${trucks.labelElement.textContent}; ${trucks.querySelector('input').value}`,
+        `\nLabel + Value: ${distance.labelElement.textContent}; ${distance.querySelector('input').value}`,
+        `\nLabel + Value: ${kWh.labelElement.textContent}; ${kWh.querySelector('input').value}`,
+        `\nLabel + Value: ${hydrogen.labelElement.textContent};  ${hydrogen.querySelector('input').value}`
+    );
+
+
+
 
 }
 
-function updateConstants(key, value) {
-    constants[key] = parseFloat(value);
+function updateColdStorageCalculations(dto, changedElement = null, newMass) {
+    if(changedElement===null)console.log('changed different element');
+    const days = dto.getHtmlElement(0);
+    const kWhd = dto.getHtmlElement(1);
+    const hydrogen = dto.getHtmlElement(2);
 
-    initializeFields();
+    console.log('update cold storage',
+        `\nLabel + Value: ${days.labelElement.textContent}; ${days.querySelector('input').value}`,
+        `\nLabel + Value: ${kWhd.labelElement.textContent}; ${kWhd.querySelector('input').value}`,
+        `\nLabel + Value: ${hydrogen.labelElement.textContent};  ${hydrogen.querySelector('input').value}`
+    );
+
+
 }
 
-function updateResults() {
+function updateSupermarketCalculations(dto, changedElement = null, newMass) {
+    if(changedElement===null)console.log('changed different element');
+    const days = dto.getHtmlElement(0);
+    const kWhd = dto.getHtmlElement(1);
+    const hydrogen = dto.getHtmlElement(2);
+
+    console.log('update supermarket',
+        `\nLabel + Value: ${days.labelElement.textContent}; ${days.querySelector('input').value}`,
+        `\nLabel + Value: ${kWhd.labelElement.textContent}; ${kWhd.querySelector('input').value}`,
+        `\nLabel + Value: ${hydrogen.labelElement.textContent};  ${hydrogen.querySelector('input').value}`
+    );
+
+}
+
+function updateConstants(dto, changedElement = null, newMass) {
+    console.log(`update constants: ${dto}`);
+}
+
+function updateResults(dto, changedElement = null, newMass) {
+    console.log(`update constants: ${dto}`);
 
 }
 
