@@ -12,7 +12,7 @@ body {
     width: 90vw;
     max-width: 1200px;
     aspect-ratio: 16 / 9;
-    background: url('PlakatKabeljau.png') no-repeat center center;
+    background: url('resource/PlakatKabeljau.png') no-repeat center center;
     background-size: contain;
 }
 

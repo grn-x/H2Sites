@@ -1,5 +1,5 @@
+import { modalSystem } from './intro.js';
 const DEBUG_MODE = false;
-
 
 let constants = {
     dieselToKWh: 10.5,      // kWh per liter of diesel
@@ -645,5 +645,10 @@ if (DEBUG_MODE) {
 }
 
 
-// ############################ Main Execution ############################
+//############################### MAIN ########################################
+
 document.addEventListener('DOMContentLoaded', initializeFields);
+
+let cleanup;
+if (cleanup) cleanup();
+cleanup = await modalSystem.openDialog(); //await to ensure the popup is visible before the buggy loading

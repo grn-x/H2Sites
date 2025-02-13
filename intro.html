@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Popup Demo</title>
+  <link rel="stylesheet" href="intro.css">
+</head>
+<body>
+<div id="overlay" class="overlay">
+  <div class="popup">
+    <div class="popup-content">
+      <h2>H2@School</h2>
+      <p class="description">
+          Als Zusatzaufgabe haben wir uns überlegt die Wasserstoffrechnungen
+        <br>
+        auf ein Echtweltbeispiel zu übertragen
+
+        <br><br>
+        Viel Spaß beim Erkunden und Ausprobieren!
+        <br><br><br>
+      </p>
+      <div class="image-container">
+        <div class="left-column">
+          <div class="image-wrapper">
+            <img src="resource/resize.svg" alt="The user experience is optimized for use with a big screen" class="popup-image">
+            <p class="caption">Ein großer Bildschirm wird für eine optimale Nutzung empfohlen</p>
+          </div>
+          <div class="image-wrapper">
+            <img src="resource/mouse_spaced.svg" alt="Using Computer Mouse is the preferred Choice of Navigation" class="popup-image">
+            <p class="caption">Eine physische Maus erleichtert den Input.</p>
+          </div>
+        </div>
+        <div class="right-column">
+          <div class="image-wrapper gif-wrapper">
+            <img src="resource/animation.gif" alt="Animation" class="popup-image gif">
+            <p class="caption">Überblick einiger Funktionen</p>
+          </div>
+        </div>
+      </div>
+      <button id="closePopup" class="close-button">&times;</button>
+    </div>
+  </div>
+</div>
+<script src="intro.js"></script>
+</body>
+</html>
