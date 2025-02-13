@@ -9,10 +9,12 @@ body {
 
 .map-container {
     position: relative;
-    width: 90vw;
-    max-width: 1200px;
+    /*width: 100vw;
+    height: 100vh;*/
+    width: 100vw;
     aspect-ratio: 16 / 9;
     background: url('resource/PlakatKabeljau.png') no-repeat center center;
+    /*background-size: contain; cover? 100% 100%*/
     background-size: contain;
 }
 
