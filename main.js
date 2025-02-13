@@ -454,10 +454,62 @@ function initializeFields() {
 
 
 
-
-
+initializeChart();
 
 }
+
+
+function initializeChart() {
+    const ctx = document.getElementById('resultsChart').getContext('2d');
+    const data = {
+        labels: ['Trawler', 'Harbor', 'Transport', 'Cold Storage', 'Supermarket'],
+        datasets: [{
+            label: 'Results: ',
+            data: [300, 50, 100, 150, 240], //dummy data, change that
+            backgroundColor: [
+                'rgb(255, 99, 132)',
+                'rgb(54, 162, 235)',
+                'rgb(255, 205, 86)',
+                'rgb(75, 192, 192)',
+                'rgb(153, 102, 255)'
+            ],
+            hoverOffset: 4
+        }]
+    };
+
+    const config = {
+        type: 'doughnut',
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 0.55,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    align: 'start',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed !== null) {
+                                label += context.parsed;
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    new Chart(ctx, config);
+}
+
 
 
 

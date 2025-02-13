@@ -101,3 +101,10 @@ input[type=number]:focus {
     margin-bottom: 3px;
     font-weight: bold;
 }
+
+.results-field canvas {
+    position:absolute;
+    width: 90%;
+    bottom: 0;
+    margin-bottom: 10px;
+}
