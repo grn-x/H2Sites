@@ -213,15 +213,18 @@ class BaseClassStripped {
 
     updateValue(htmlElement) {
         this.preUpdate(htmlElement);
+        console.warn('value changed');
         //this.recalculate();
     }
 
-    preUpdate(changedElement){
+    preUpdate(changedElement) {
         console.warn('preupdate start');
-       const newMass = this.updaterMethod(this.dataset, changedElement, 0);
-       this.updateNeighbors(0, this);
-         //this.updateNeighborsDataset(newMass, this.dataset);
-         console.log('preupdate end');
+        const newMass = this.updaterMethod(this.dataset, changedElement, 0);
+        // Pass 'this' as the originalCaller - the node we started from
+        this.updateNeighbors(newMass, this.next);
+        console.log('preupdate end');
+
+
 
     }
 
@@ -229,23 +232,24 @@ class BaseClassStripped {
         this.updaterMethod();
     }
 
-    updateNeighbors(newMass, caller){
-        console.log('compare this to caller', this.toString(), caller.toString());
-        console.log(this === caller);
-        console.log(this, caller);
-        console.warn(this.dataset.getHtmlElement(0).labelElement.textContent , caller.dataset.getHtmlElement(0).labelElement.textContent);
-        console.log('update end');
-        if(!this.next){
-            console.log('no next', this.toString()); //shouldnt happen since closed loop structure
+    updateNeighbors(newMass, originalCaller) {
+
+        console.log(this===this);
+        console.log(this===this.next);
+        console.log(this===this.next.next.next.next.next.next.next);
+        console.log(this===this.next.next.next.next.next.next.next.next);
+
+
+        if (this.next === originalCaller.next) {
+            console.log('Loop completed - back to original caller');
             return;
         }
-        if (this.next !== caller) {
-            this.updaterMethod(this.dataset, null, newMass);
-            this.next.updateNeighbors(newMass, caller);
-        }else{
-            console.log('loop ended');
-            //exit loop
-        }
+
+        // Process current node
+        this.updaterMethod(this.dataset, null, newMass);
+
+        // Move to next node
+        this.next.updateNeighbors(newMass, originalCaller);
     }
 
     updateNeighborsDataset(newMass, callerDTO){
@@ -417,38 +421,13 @@ function initializeFields() {
     ]), updateResults);
     BaseClassStripped.prototype.createElement = originalUpdateValue;
 
-
-    /*constantsField.insertAfter(trawler);
-    trawler.insertAfter(harbor);
-    harbor.insertAfter(transport);
-    transport.insertAfter(coldStorage);
-    coldStorage.insertAfter(supermarket);
-    supermarket.insertAfter(constantsField);
-    constantsField.insertAfter(resultsField);
-    resultsField.insertAfter(constantsField);
-
-    trawler.insertAfter(constantsField);
-    harbor.insertAfter(trawler);
-    transport.insertAfter(harbor);
-    coldStorage.insertAfter(transport);
-    supermarket.insertAfter(coldStorage);
-    resultsField.insertAfter(supermarket);
-    constantsField.insertAfter(resultsField);*/
-
-
-
-    /*resultsField.insertBefore(supermarket);
+    resultsField.insertBefore(supermarket);
     supermarket.insertBefore(coldStorage);
     coldStorage.insertBefore(transport);
     transport.insertBefore(harbor);
     harbor.insertBefore(trawler);
     trawler.insertBefore(constantsField);
-    constantsField.insertBefore(resultsField);*/
-
-    resultsField.insertBefore(constantsField);
-    constantsField.insertBefore(trawler);
-    trawler.insertBefore(transport);
-    transport.insertBefore(resultsField);
+    constantsField.insertBefore(resultsField);
 
 
 
