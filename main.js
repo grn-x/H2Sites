@@ -213,16 +213,14 @@ class BaseClassStripped {
 
     updateValue(htmlElement) {
         this.preUpdate(htmlElement);
-        console.warn('value changed');
-        //this.recalculate();
+
     }
 
     preUpdate(changedElement) {
         console.warn('preupdate start');
         const newMass = this.updaterMethod(this.dataset, changedElement, 0);
         // Pass 'this' as the originalCaller - the node we started from
-        this.updateNeighbors(newMass, this.next);
-        console.log('preupdate end');
+        this.next.updateNeighbors(newMass, this);
 
 
 
@@ -233,15 +231,8 @@ class BaseClassStripped {
     }
 
     updateNeighbors(newMass, originalCaller) {
-
-        console.log(this===this);
-        console.log(this===this.next);
-        console.log(this===this.next.next.next.next.next.next.next);
-        console.log(this===this.next.next.next.next.next.next.next.next);
-
-
-        if (this.next === originalCaller.next) {
-            console.log('Loop completed - back to original caller');
+        // If we've come back to the original caller, exit the recursion
+        if (this === originalCaller) {
             return;
         }
 
@@ -252,23 +243,7 @@ class BaseClassStripped {
         this.next.updateNeighbors(newMass, originalCaller);
     }
 
-    updateNeighborsDataset(newMass, callerDTO){
-        console.log('compare this to caller', this.dataset.toString(), callerDTO.toString());
-        console.log(this.dataset === callerDTO);
-        console.log(this.dataset, callerDTO);
-        console.log('update end');
-        if(!this.next){
-            console.log('no next', this.toString()); //shouldnt happen since closed loop structure
-            return;
-        }
-        if (this.next.dataset !== callerDTO) {
-            this.next.updateValue(this.dataset, null, newMass);
-            this.next.updateNeighbors(newMass, callerDTO);
-        }else{
-            console.log('loop ended');
-            //exit loop
-        }
-    }
+
 
     notifyUpdate() {
         console.log(`Updated: ${this.label} -> ${this.value}`);
@@ -280,8 +255,9 @@ class BaseClassStripped {
     } */
 
     insertBefore(newNode) {
-        newNode.next = this;
+        //newNode.next = this; //who wrote this shit //now the loop will kinda crash if its not closed correctly
         this.next = newNode
+        //if(newNode.next === null) newNode.next = this;
     }
 
     toString(){
@@ -421,13 +397,16 @@ function initializeFields() {
     ]), updateResults);
     BaseClassStripped.prototype.createElement = originalUpdateValue;
 
-    resultsField.insertBefore(supermarket);
-    supermarket.insertBefore(coldStorage);
-    coldStorage.insertBefore(transport);
-    transport.insertBefore(harbor);
-    harbor.insertBefore(trawler);
-    trawler.insertBefore(constantsField);
-    constantsField.insertBefore(resultsField);
+
+
+    //will insert the calling field before the passed field, name might be misleading
+    constantsField.insertBefore(trawler);
+    trawler.insertBefore(harbor);
+    harbor.insertBefore(transport);
+    transport.insertBefore(coldStorage);
+    coldStorage.insertBefore(supermarket);
+    supermarket.insertBefore(resultsField);
+    resultsField.insertBefore(constantsField);
 
 
 
@@ -637,7 +616,7 @@ function updateConstants(dto, changedElement = null, newMass) {
 }
 
 function updateResults(dto, changedElement = null, newMass) {
-    console.log(`update constants: ${dto}`);
+    console.log(`update results: ${dto}`);
 
 }
 
