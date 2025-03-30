@@ -524,102 +524,111 @@ function initializeFields_dpr() {
     });
 }
 
-
+const glob_temp_log = false;
 
 // update functions for each section, change later to oop model with self referencing field managing objects
 function updateTrawlerCalculations(dto, changedElement = null, newMass) {
-    if(changedElement===null)console.log('changed different element');
+    if (changedElement === null){
+        //induced update, changed different element, recalculate based on new mass
+    }
+    //determine changed value -> update other values based on that
+    //push everything into the dto (necessary??)
+    //new mass?
+
+
     const codTons = dto.getHtmlElement(0);
     const dieselLiters = dto.getHtmlElement(1);
     const kWh = dto.getHtmlElement(2);
     const hydrogen = dto.getHtmlElement(3);
 
-    console.log('update trawler',
-        `\nLabel + Value: ${codTons.labelElement.textContent}; ${codTons.querySelector('input').value}`,
-        `\nLabel + Value: ${dieselLiters.labelElement.textContent}; ${dieselLiters.querySelector('input').value}`,
-        `\nLabel + Value: ${kWh.labelElement.textContent}; ${kWh.querySelector('input').value}`,
-        `\nLabel + Value: ${hydrogen.labelElement.textContent};  ${hydrogen.querySelector('input').value}`
-    );
-    /*console.log(dto.toString());
-    dto.foreachValue().forEach(({ label, defaultVal, ratio, currentVal, htmlElement }) => {
-        if(htmlElement === changedElement){
-            console.log('changed element');
-        }else{
-        console.log('not found', label, defaultVal, ratio, currentVal, htmlElement);
-        }
-    });*/
+    console.log("passed element: " + changedElement);
+    console.log(changedElement.labelElement.textContent);
+
+    dto.foreach((property, value) => {
+        console.log(value);
+    });
+
+    if (true) {
+        console.log('update trawler',
+            `\nLabel + Value: ${codTons.labelElement.textContent} ${codTons.querySelector('input').value}`,
+            `\nLabel + Value: ${dieselLiters.labelElement.textContent} ${dieselLiters.querySelector('input').value}`,
+            `\nLabel + Value: ${kWh.labelElement.textContent} ${kWh.querySelector('input').value}`,
+            `\nLabel + Value: ${hydrogen.labelElement.textContent}  ${hydrogen.querySelector('input').value}`
+        );
+    }
 }
 
 function updateHarborCalculations(dto, changedElement = null, newMass) {
-    if(changedElement===null)console.log('changed different element');
+    if (changedElement === null) console.log('changed different element');
     const kWh = dto.getHtmlElement(0);
     const hydrogen = dto.getHtmlElement(1);
+    if (glob_temp_log) {
 
-    console.log('update harbor',
-        `\nLabel + Value: ${kWh.labelElement.textContent}; ${kWh.querySelector('input').value}`,
-        `\nLabel + Value: ${hydrogen.labelElement.textContent};  ${hydrogen.querySelector('input').value}`
-    );
-
-
+        console.log('update harbor',
+            `\nLabel + Value: ${kWh.labelElement.textContent} ${kWh.querySelector('input').value}`,
+            `\nLabel + Value: ${hydrogen.labelElement.textContent}  ${hydrogen.querySelector('input').value}`
+        );
+    }
 }
 
 function updateTransportCalculations(dto, changedElement = null, newMass) {
-    if(changedElement===null)console.log('changed different element');
+    if (changedElement === null) console.log('changed different element');
     const trucks = dto.getHtmlElement(0);
     const distance = dto.getHtmlElement(1);
     const kWh = dto.getHtmlElement(2);
     const hydrogen = dto.getHtmlElement(3);
+    if (glob_temp_log) {
 
-    console.log('update transport',
-        `\nLabel + Value: ${trucks.labelElement.textContent}; ${trucks.querySelector('input').value}`,
-        `\nLabel + Value: ${distance.labelElement.textContent}; ${distance.querySelector('input').value}`,
-        `\nLabel + Value: ${kWh.labelElement.textContent}; ${kWh.querySelector('input').value}`,
-        `\nLabel + Value: ${hydrogen.labelElement.textContent};  ${hydrogen.querySelector('input').value}`
-    );
-
-
-
-
+        console.log('update transport',
+            `\nLabel + Value: ${trucks.labelElement.textContent} ${trucks.querySelector('input').value}`,
+            `\nLabel + Value: ${distance.labelElement.textContent} ${distance.querySelector('input').value}`,
+            `\nLabel + Value: ${kWh.labelElement.textContent} ${kWh.querySelector('input').value}`,
+            `\nLabel + Value: ${hydrogen.labelElement.textContent}  ${hydrogen.querySelector('input').value}`
+        );
+    }
 }
 
 function updateColdStorageCalculations(dto, changedElement = null, newMass) {
-    if(changedElement===null)console.log('changed different element');
-    const days = dto.getHtmlElement(0);
-    const kWhd = dto.getHtmlElement(1);
-    const hydrogen = dto.getHtmlElement(2);
+    if (glob_temp_log) {
+        if (changedElement === null) console.log('changed different element');
+        const days = dto.getHtmlElement(0);
+        const kWhd = dto.getHtmlElement(1);
+        const hydrogen = dto.getHtmlElement(2);
 
-    console.log('update cold storage',
-        `\nLabel + Value: ${days.labelElement.textContent}; ${days.querySelector('input').value}`,
-        `\nLabel + Value: ${kWhd.labelElement.textContent}; ${kWhd.querySelector('input').value}`,
-        `\nLabel + Value: ${hydrogen.labelElement.textContent};  ${hydrogen.querySelector('input').value}`
-    );
-
-
+        console.log('update cold storage',
+            `\nLabel + Value: ${days.labelElement.textContent} ${days.querySelector('input').value}`,
+            `\nLabel + Value: ${kWhd.labelElement.textContent} ${kWhd.querySelector('input').value}`,
+            `\nLabel + Value: ${hydrogen.labelElement.textContent}  ${hydrogen.querySelector('input').value}`
+        );
+    }
 }
 
 function updateSupermarketCalculations(dto, changedElement = null, newMass) {
-    if(changedElement===null)console.log('changed different element');
+    if (changedElement === null) console.log('changed different element');
     const days = dto.getHtmlElement(0);
     const kWhd = dto.getHtmlElement(1);
     const hydrogen = dto.getHtmlElement(2);
+    if (glob_temp_log) {
 
-    console.log('update supermarket',
-        `\nLabel + Value: ${days.labelElement.textContent}; ${days.querySelector('input').value}`,
-        `\nLabel + Value: ${kWhd.labelElement.textContent}; ${kWhd.querySelector('input').value}`,
-        `\nLabel + Value: ${hydrogen.labelElement.textContent};  ${hydrogen.querySelector('input').value}`
-    );
-
+        console.log('update supermarket',
+            `\nLabel + Value: ${days.labelElement.textContent} ${days.querySelector('input').value}`,
+            `\nLabel + Value: ${kWhd.labelElement.textContent} ${kWhd.querySelector('input').value}`,
+            `\nLabel + Value: ${hydrogen.labelElement.textContent}  ${hydrogen.querySelector('input').value}`
+        );
+    }
 }
 
 function updateConstants(dto, changedElement = null, newMass) {
-    console.log(`update constants: ${dto}`);
+    if (glob_temp_log) {
+        console.log(`update constants: ${dto}`);
+    }
 }
 
 function updateResults(dto, changedElement = null, newMass) {
-    console.log(`update results: ${dto}`);
-
+    if (glob_temp_log) {
+        console.log(`update results: ${dto}`);
+    }
 }
-
 
 if (DEBUG_MODE) {
     const mapContainer = document.getElementById('mapContainer');
