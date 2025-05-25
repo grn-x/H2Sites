@@ -1,30 +1,32 @@
 import { modalSystem } from './intro.js';
 const DEBUG_MODE = false;
 
-let constants = {
+let constants = { // TODO hydrogen mass is closer to kg than tons; factor 1000
     dieselToKWh: 10.5,      // kWh per liter of diesel
     kWhToHydrogen: 0.03,    // tons of hydrogen per kWh
     values: {
         trawler: {
             defaultDieselConsumption: 140000,
             defaultCodCatch: 580,
-            ratio: 140000 / 580,
+            ratio: 140000 / 580, // dieselLiters per cod ton
         },
         harbor: {
             defaultMinKWh: 200000,
             defaultMaxKWh: 250000,
             defaultAvgKWh: 225000,
-            ratio: 225000 / 580,
+            ratio: 225000 / 580, // kWh per cod ton
         },
         transport: {
             defaultTrucks: 20,
             defaultDistance: 100,
-
+            tonsPerTruck: 580/20,
             dieselPer100km: 37.5,  // average of 35-40 change this for others?
             distance: 100
         },
         coldStorage: {
-            kWhPerDay: 40000,
+            maxCapacity: 5000, // tons for which the cold storage is designed, and the kwh per day applies
+            kWhPerDay: 40000, // kWh per day for the cold storage, assuming lower or equal to maxCapacity
+            maxCapRatio: 40000/5000, // kWh per ton for the cold storage
             days: 7
         },
         supermarket: {
@@ -111,9 +113,10 @@ class DTO { //proxy object?
     constructor(config){
         this.dataset = config;
         this.mass = 0;
+        this.kWh = 0;
     }
 
-    *foreach() {
+    *forEach() {
         for (const property in this) {
             if (this.hasOwnProperty(property)) {
                 yield { property, value: this[property] };
@@ -121,7 +124,7 @@ class DTO { //proxy object?
         }
     }
 
-    *foreachValue() {
+    *forEachValue() {
         let i = 0;
         for (const list of this.dataset) {
             yield {
@@ -134,16 +137,39 @@ class DTO { //proxy object?
             };
         }
     }
+
+
     toString(){
-        return JSON.stringify(this.dataset);
+        return `Mass: \t${this.mass},\nDataset: \n`+JSON.stringify(this.dataset, null, 2);//"\t");
     }
 
     setHtmlElement(index, element){
         this.dataset[index][4] = element;
     }
 
+    setValue(index, value){
+        this.dataset[index][3] = value;
+    }
+
+    getValue(index){
+        return this.dataset[index][3] !== null ? this.dataset[index][3] : this.dataset[index][1];
+    }
+
+    getLabel(index){
+        return this.dataset[index][0];
+    }
+
+
     getHtmlElement(index){
         return this.dataset[index][4];
+    }
+
+    setKWh(kWh){
+        this.kWh = kWh;
+    }
+
+    getKWh(){
+        return this.kWh;
     }
 
     getList(index){
@@ -153,6 +179,8 @@ class DTO { //proxy object?
     getCustomIndex(indexObject, indexInner){
         return this.dataset[indexObject][indexInner];
     }
+
+
 }
 
 
@@ -166,10 +194,11 @@ class BaseClassStripped {
         this.next = null; // For linked loop
         this.updaterMethod = updaterMethod;
         this.initializeFields();
+        this.disableUpdate = false; // Flag to prevent unwanted recursion
     }
 
     initializeFields() {
-        for (const { label, defaultVal, ratio, currentVal, htmlElement, iterator } of this.dataset.foreachValue()) {
+        for (const { label, defaultVal, ratio, currentVal, htmlElement, iterator } of this.dataset.forEachValue()) {
             //const {container, inputField} =this.createElement(label, defaultVal, currentVal);
             const container = this.createElement(label, defaultVal);
             this.parentField.appendChild(container);
@@ -212,6 +241,12 @@ class BaseClassStripped {
     }*/
 
     updateValue(htmlElement) {
+        //temporarily disable with flag, when adjusting the html elements to prevent unwanted recursion
+        if( this.disableUpdate) {
+            console.warn('Update disabled, returning early');
+            return;
+        }
+
         this.preUpdate(htmlElement);
 
     }
@@ -219,8 +254,18 @@ class BaseClassStripped {
     preUpdate(changedElement) {
         console.warn('preupdate start');
         const newMass = this.updaterMethod(this.dataset, changedElement, 0);
-        // Pass 'this' as the originalCaller - the node we started from
-        this.next.updateNeighbors(newMass, this);
+
+        // Pass 'this' as the originalCaller the node we started from
+        //after updating the dto, load all the values into the html elements
+
+        this.adjustHTMLfromDTO(this.dataset);
+
+        if(newMass === undefined || newMass == null|| newMass < 0) {
+            console.warn('New mass is undefined or negative, indicating that the mass remains unchanged; returning early');
+            return;
+        }else{
+            this.next.updateNeighbors(newMass, this);
+        }
 
 
 
@@ -231,19 +276,32 @@ class BaseClassStripped {
     }
 
     updateNeighbors(newMass, originalCaller) {
-        // If we've come back to the original caller, exit the recursion
         if (this === originalCaller) {
             return;
         }
 
-        // Process current node
         this.updaterMethod(this.dataset, null, newMass);
+        this.adjustHTMLfromDTO(this.dataset);
 
-        // Move to next node
         this.next.updateNeighbors(newMass, originalCaller);
     }
 
 
+    adjustHTMLfromDTO(dto) {
+        this.disableUpdate = true; // temporarily disable updates to prevent recursion
+
+        for (const { label, defaultVal, ratio, currentVal, htmlElement, iterator } of dto.forEachValue()) {
+            const inputElement = htmlElement.querySelector('input');
+            //console.log(`Adjusting HTML element: ${htmlElement}, input: ${htmlElement.querySelector('input')}, value: ${htmlElement.querySelector('input').value} for ${label}: currentVal=${currentVal}, defaultVal=${defaultVal}`);
+            if (inputElement) {
+                inputElement.value = currentVal !== null ? currentVal : defaultVal;
+            }
+        }
+
+        if(glob_temp_log)console.log(`Adjusted HTML elements for ${this.label} with dataset: ${dto.toString()}`);
+
+        this.disableUpdate = false; // reenable updates after adjustment
+    }
 
     notifyUpdate() {
         console.log(`Updated: ${this.label} -> ${this.value}`);
@@ -354,6 +412,7 @@ function initializeFields() {
     ]), updateColdStorageCalculations);
 
     const supermarket = new BaseClassStripped('.interactive-field[data-info="Supermarkt Info"]', new DTO([
+        //['Supermarkets: ', 10, null, null, null], //figure out average supermarket cod ton supply
         ['Days:', constants.values.coldStorage.days, null, null, null],
         ['kWh/day:', constants.values.supermarket.minKWh, null, null, null],
         ['H₂ (tons):', 0, null, null, null]
@@ -364,7 +423,9 @@ function initializeFields() {
         ['kWh to H₂:', constants.kWhToHydrogen, null, null, null],
         ['Truck litres per 100km:', constants.values.transport.dieselPer100km, null, null, null],
         ['Ship litres per ton:', constants.values.trawler.ratio, null, null, null],
-        ['Supermarket tons per m^2:', constants.values.supermarket.minKWh, null, null, null]
+        ['Tons sold per Supermarket:', constants.values.supermarket.minKWh, null, null, null], //TODO
+        ['Harbor kWh per ton:', constants.values.harbor.ratio, null, null, null],
+
 
     ]), updateConstants);
 
@@ -412,7 +473,7 @@ function initializeFields() {
 
 
 
-initializeChart();
+    initializeChart();
 
 }
 
@@ -526,96 +587,384 @@ function initializeFields_dpr() {
 
 const glob_temp_log = false;
 
+function getChangedIndex(dto, changedElement){
+    let index = -1;
+    //compare this.dataset with dto.getDataset
+    //console.log("\t\t this dataset" + this.dataset.toString());
+    //console.log("\t\t this dto" + dto.getDataset().toString());
+
+    //dto.forEachValue(({ label, defaultVal, ratio, currentVal, htmlElement, iterator }) => {
+    //for (const { label, defaultVal, ratio, currentVal, htmlElement, iterator } of this.dataset.forEachValue()) { //this refers to the caller; and the base class
+    for (const { label, defaultVal, ratio, currentVal, htmlElement, iterator } of dto.forEachValue()) {
+        if(glob_temp_log)console.log(`Label: ${label}, Default Value: ${defaultVal}, Ratio: ${ratio}, Current Value: ${currentVal}, Iterator: ${iterator}`);
+        if (label === changedElement.labelElement.textContent) {
+            if(glob_temp_log)console.log(`found element label: ${label}, iterator: ${iterator}, htmlElement: ${htmlElement}`)
+            index = iterator;
+        }
+    }
+    // });
+
+    return index;
+
+}
+
+
 // update functions for each section, change later to oop model with self referencing field managing objects
+//trawler dto contains: //codTons, dieselLiters, kWh, hydrogen
 function updateTrawlerCalculations(dto, changedElement = null, newMass) {
+    console.log('update trawler calculations, new mass:', newMass, "changedElement: ", changedElement);
     if (changedElement === null){
         //induced update, changed different element, recalculate based on new mass
+        if(glob_temp_log)console.log("prechange:", dto.toString());
+        //for this element the recalculation is easy since we can just save the newMass as codTons and recursively call this method to simulate a change of codTons
+        dto.setValue(0, newMass); //set codTons to newMass
+        dto.getHtmlElement(0).querySelector('input').value = newMass; //update the html element to reflect the new value;
+        //only needed because baseclass would do this after the recursive call, but because we are doing this recursively, and simulate a manual change of codTons, we need to do this here
+        //seems like an architectural flaw, but this workaround will do for now
+        updateTrawlerCalculations(dto, dto.getHtmlElement(0), newMass); //simulate manual change of codTons, to avoid redundant code
+        if(glob_temp_log)console.log("postchange:", dto.toString());
+        return newMass; //return new mass; technically only needed for initial caller, like could be the case in below code
     }
     //determine changed value -> update other values based on that
     //push everything into the dto (necessary??)
     //new mass?
 
 
-    const codTons = dto.getHtmlElement(0);
-    const dieselLiters = dto.getHtmlElement(1);
-    const kWh = dto.getHtmlElement(2);
-    const hydrogen = dto.getHtmlElement(3);
+    const index = getChangedIndex(dto, changedElement);
+    dto.setValue(index, changedElement.querySelector('input').value); //push changed value into the dto!
 
-    console.log("passed element: " + changedElement);
-    console.log(changedElement.labelElement.textContent);
+    switch (index) {
+        case 0: //codTons changed
+            if(glob_temp_log)console.log("codTons changed, index: " + index);
+            //update dieselLiters, kWh and hydrogen based on codTons
+            const codTons_dto0 = dto.getValue(0);
+            const dieselLiters_dto0 = codTons_dto0 * constants.values.trawler.ratio; // TODO pull from constants
+            const kWh_dto0 = dieselLiters_dto0 * constants.dieselToKWh; // TODO pull from constants
+            const hydrogen_dto0 = calculateHydrogen(dieselLiters_dto0); // TODO pull from constants
 
-    dto.foreach((property, value) => {
-        console.log(value);
-    });
+            dto.setValue(1, dieselLiters_dto0);
+            dto.setValue(2, kWh_dto0);
+            dto.setValue(3, hydrogen_dto0);
+            break;
+        case 1: //dieselLiters changed
+            if(glob_temp_log)console.log("dieselLiters changed, index: " + index);
+            //update codTons, kWh and hydrogen based on dieselLiters
+            const dieselLiters_dto1 = dto.getValue(1);
+            const codTons_dto1 = dieselLiters_dto1 / constants.values.trawler.ratio; // TODO pull from constants
+            const kWh_dto1 = dieselLiters_dto1 * constants.dieselToKWh;    // TODO pull from constants
+            const hydrogen_dto1 = calculateHydrogen(dieselLiters_dto1); // TODO pull from constants
 
-    if (true) {
-        console.log('update trawler',
-            `\nLabel + Value: ${codTons.labelElement.textContent} ${codTons.querySelector('input').value}`,
-            `\nLabel + Value: ${dieselLiters.labelElement.textContent} ${dieselLiters.querySelector('input').value}`,
-            `\nLabel + Value: ${kWh.labelElement.textContent} ${kWh.querySelector('input').value}`,
-            `\nLabel + Value: ${hydrogen.labelElement.textContent}  ${hydrogen.querySelector('input').value}`
-        );
+            dto.setValue(0, codTons_dto1);
+            dto.setValue(2, kWh_dto1);
+            dto.setValue(3, hydrogen_dto1);
+            break;
+        case 2: //kWh changed
+            if(glob_temp_log)console.log("kWh changed, index: " + index);
+            //update codTons, dieselLiters and hydrogen based on kWh
+            const kWh_dto2 = dto.getValue(2);
+            const dieselLiters_dto2 = kWh_dto2 / constants.dieselToKWh; // TODO pull from constants
+            const codTons_dto2 = dieselLiters_dto2 / constants.values.trawler.ratio; // TODO pull from constants
+            const hydrogen_dto2 = calculateHydrogen(dieselLiters_dto2); // TODO pull from constants
+
+            dto.setValue(0, codTons_dto2);
+            dto.setValue(1, dieselLiters_dto2);
+            dto.setValue(3, hydrogen_dto2);
+            break;
+        case 3: //hydrogen changed
+            if(glob_temp_log)console.log("hydrogen changed, index: " + index);
+            //update codTons, dieselLiters and kWh based on hydrogen
+            const hydrogen_dto3 = dto.getValue(3);
+            const kWh_dto3 = hydrogen_dto3 / constants.kWhToHydrogen; // TODO pull from constants
+            const dieselLiters_dto3 = kWh_dto3 / constants.dieselToKWh; // TODO pull from constants
+            const codTons_dto3 = dieselLiters_dto3 / constants.values.trawler.ratio; // TODO pull from constants
+
+            dto.setValue(0, codTons_dto3);
+            dto.setValue(1, dieselLiters_dto3);
+            dto.setValue(2, kWh_dto3);
+            break;
+        default:
+            console.warn(`Unknown index: ${index}`);
+            break;
     }
+
+
+    if(glob_temp_log)console.log("passed element: " + changedElement);
+    if(glob_temp_log)console.log(changedElement.labelElement.textContent);
+
+    if(glob_temp_log)console.log("changing value at. "+dto.getLabel(index));
+    //dto.setValue(index, changedElement.querySelector('input').value);
+
+    for (const { label, defaultVal, ratio, currentVal, htmlElement, iterator } of dto.forEachValue()) {
+        if(glob_temp_log)console.log(`Label: ${label}, Default Value: ${defaultVal}, Ratio: ${ratio}, Current Value: ${currentVal}, Iterator: ${iterator}`);
+
+    }
+
+        /*console.log(dto.toString());
+        dto.forEachValue().forEach(({ label, defaultVal, ratio, currentVal, htmlElement }) => {
+            if(htmlElement === changedElement){
+                console.log('changed element');
+            }else{
+            console.log('not found', label, defaultVal, ratio, currentVal, htmlElement);
+            }
+        });*/
+
+    return dto.getValue(0); //return codTons, needed if this updater method was the initial caller and the new mass is to be passed to the next updater method
 }
 
 function updateHarborCalculations(dto, changedElement = null, newMass) {
-    if (changedElement === null) console.log('changed different element');
-    const kWh = dto.getHtmlElement(0);
-    const hydrogen = dto.getHtmlElement(1);
-    if (glob_temp_log) {
+    if (changedElement === null){
+        //induced update, changed different element, recalculate based on new mass
 
-        console.log('update harbor',
-            `\nLabel + Value: ${kWh.labelElement.textContent} ${kWh.querySelector('input').value}`,
-            `\nLabel + Value: ${hydrogen.labelElement.textContent}  ${hydrogen.querySelector('input').value}`
-        );
+        const kWh = newMass * constants.values.harbor.ratio; //calculate kWh based on new mass
+        dto.setValue(0, kWh);
+        dto.getHtmlElement(0).querySelector('input').value = kWh; //update the html element to reflect the new value;
+        //only needed because baseclass would do this after the recursive call, but because we are doing this recursively, and simulate a manual change of kWh, we need to do this here
+        //seems like an architectural flaw, but this workaround will do for now
+
+        updateHarborCalculations(dto, dto.getHtmlElement(0), newMass); //simulate manual change of kWh, to avoid redundant code
+
+        return newMass; //return new mass; technically only needed for initial caller, like could be the case in below code
+
     }
+
+    const index = getChangedIndex(dto, changedElement);
+    dto.setValue(index, changedElement.querySelector('input').value);
+
+    switch (index) {
+        case 0: //kWh changed
+            //update hydrogen based on kWh
+            const kWh_dto0 = dto.getValue(0);
+            const hydrogen_dto0 = kWh_dto0 * constants.kWhToHydrogen; // TODO pull from constants
+            dto.setValue(1, hydrogen_dto0);
+            break;
+
+        case 1: //hydrogen changed
+            if(glob_temp_log)console.log("hydrogen changed, index: " + index);
+            //update kWh based on hydrogen
+            const hydrogen_dto1 = dto.getValue(1);
+            const kWh_dto1 = hydrogen_dto1 / constants.kWhToHydrogen; // TODO pull from constants
+            dto.setValue(0, kWh_dto1);
+            break;
+        default:
+            console.warn(`Unknown index: ${index}`);
+            break;
+    }
+
+    return dto.getValue(0) / constants.values.harbor.ratio;
 }
 
 function updateTransportCalculations(dto, changedElement = null, newMass) {
-    if (changedElement === null) console.log('changed different element');
-    const trucks = dto.getHtmlElement(0);
-    const distance = dto.getHtmlElement(1);
-    const kWh = dto.getHtmlElement(2);
-    const hydrogen = dto.getHtmlElement(3);
-    if (glob_temp_log) {
+    //console.log('update transport calculations, new mass: ', newMass, "changedElement: ", changedElement);
 
-        console.log('update transport',
-            `\nLabel + Value: ${trucks.labelElement.textContent} ${trucks.querySelector('input').value}`,
-            `\nLabel + Value: ${distance.labelElement.textContent} ${distance.querySelector('input').value}`,
-            `\nLabel + Value: ${kWh.labelElement.textContent} ${kWh.querySelector('input').value}`,
-            `\nLabel + Value: ${hydrogen.labelElement.textContent}  ${hydrogen.querySelector('input').value}`
-        );
+    //dto contains: numTrucks, distance, kWh, H2(tons)
+    if (changedElement === null) { //induced change; update mass and simulate mass dependent field change through single call recursion
+        const numTrucks = Math.ceil(newMass / constants.values.transport.tonsPerTruck); //calculate new number of trucks based on mass
+        dto.setValue(0, numTrucks);
+        dto.getHtmlElement(0).querySelector('input').value = numTrucks; //update the html element to reflect the new value;
+        //only needed because baseclass, which would do this through the eventdriven approach, fires after the recursive call,
+        // but because the field has its old value, which is then read in when we simulate a manual change of codTons, we need to do this here
+        //seems like an architectural flaw, but this workaround will do for now
+
+        updateTransportCalculations(dto, dto.getHtmlElement(0), newMass); //simulate manual change of numTrucks, to avoid redundant code
+        return newMass; //return new mass; technically only needed for initial caller, like could be the case in below code
     }
+        if(glob_temp_log)console.log('transport changed element: ', changedElement.labelElement.textContent);
+
+        const index = getChangedIndex(dto, changedElement);
+
+        dto.setValue(index, changedElement.querySelector('input').value);
+        //push changed value into the dto!
+        switch (index) {
+            case 0: case 1: //numTrucks or distance changed; behave equal
+                //numTrucks, equals mass
+                //distance unaffected; calculate kWh and hydrogen based on numTrucks
+                const dto0_numTrucks = dto.getValue(0);
+                const dto0_distance = dto.getValue(1);
+
+                const dto0_dieselLitres = constants.values.transport.dieselPer100km * (dto0_numTrucks * dto0_distance / 100); //TODO pull from constants
+                const dto0_kWh = dto0_dieselLitres * constants.dieselToKWh; //TODO pull from constants
+                const dto0_hydrogen = calculateHydrogen(dto0_dieselLitres); //TODO pull from constants
+
+                dto.setValue(2, dto0_kWh);
+                dto.setValue(3, dto0_hydrogen);
+
+                //dto.getHtmlElement(2).querySelector('input').value = dto0_kWh;
+                //dto.getHtmlElement(3).querySelector('input').value = dto0_hydrogen;
+
+
+
+                break;
+            case 2: //kWh; numTrucks gets changed by different mass; distance gets changed by different kwh
+                //calculate new distance
+                const dto2_kWh = dto.getValue(2);
+                const dto2_numTrucks = dto.getValue(0);
+
+                const dto2_hydrogen = dto2_kWh*constants.kWhToHydrogen; //TODO pull from constants
+                //const dto2_distance = dto2_kWh / (dto2_numTrucks.getValue() * constants.values.transport.dieselPer100km / 100 * constants.dieselToKWh); //TODO pull from constants
+                //const dto2_distance = (dto2_kWh / dto2_numTrucks) * (1/constants.dieselToKWh) * constants.values.transport.dieselPer100km; //TODO pull from constants
+                const dto2_distance = ((dto2_kWh / dto2_numTrucks) / constants.dieselToKWh) / constants.values.transport.dieselPer100km*100; //TODO pull from constants
+
+                dto.setValue(1, dto2_distance);
+                dto.setValue(3, dto2_hydrogen);
+
+                break;
+            case 3: //hydrogen
+                //calculate hydrogen based on kWh
+                const dto3_hydrogen = dto.getValue(3);
+                const dto3_numTrucks = dto.getValue(0);
+
+                const dto3_kWh = dto3_hydrogen / constants.kWhToHydrogen; //TODO pull from constants
+                const dto3_distance = ((dto3_kWh / dto3_numTrucks) / constants.dieselToKWh) / constants.values.transport.dieselPer100km*100; //TODO pull from constants
+                dto.setValue(2, dto3_kWh);
+                dto.setValue(1, dto3_distance);
+
+
+                break;
+            default:
+                console.warn(`Unknown index: ${index}`);
+                break;
+
+
+        }
+
+
+
+        //index case
+const returns = dto.getValue(0) * constants.values.transport.tonsPerTruck;
+    //if(glob_temp_log)
+    if(glob_temp_log)console.log("transport returns: ", returns);
+    return returns;  //return calculated mass, needed if this updater method was the initial caller and the new mass is to be passed to the next updater method
+
+
 }
 
+//TODO adjust mechanisms, kwh/day consumption will realistically not correlate linearly with mass
 function updateColdStorageCalculations(dto, changedElement = null, newMass) {
-    if (glob_temp_log) {
-        if (changedElement === null) console.log('changed different element');
-        const days = dto.getHtmlElement(0);
-        const kWhd = dto.getHtmlElement(1);
-        const hydrogen = dto.getHtmlElement(2);
+    //dto contains: days, kWh per day, H2(tons)
+    if (changedElement === null) { //induced change; update mass and simulate mass dependent field change through single call recursion
+        //TODO test first if kwh/day has been changed before to avoid overwriting user changed settings unnoticed
 
-        console.log('update cold storage',
-            `\nLabel + Value: ${days.labelElement.textContent} ${days.querySelector('input').value}`,
-            `\nLabel + Value: ${kWhd.labelElement.textContent} ${kWhd.querySelector('input').value}`,
-            `\nLabel + Value: ${hydrogen.labelElement.textContent}  ${hydrogen.querySelector('input').value}`
-        );
+        //the cold storage is designed for 5000 tons; if that threshold is exceeded, additional kWh will be added;
+        // if the limit is subceeded, we calculate with a static power consumption of the maximum capacity
+        let kWhPerDay;
+        if(newMass > constants.values.coldStorage.maxCapacity) {
+            kWhPerDay = newMass * constants.values.coldStorage.maxCapRatio; //calculate new kWh per day based on mass
+        }else{
+            kWhPerDay = constants.values.coldStorage.kWhPerDay; //dto.getValue(1); //use the static value //TODO
+        }
+
+
+        dto.setValue(1, kWhPerDay);
+        dto.getHtmlElement(1).querySelector('input').value = kWhPerDay; //update the html element to reflect the new value;
+        //only needed because baseclass, which would do this through the eventdriven approach, fires after the recursive call,
+        // but because the field has its old value, which is then read in when we simulate a manual change of codTons, we need to do this here
+        //seems like an architectural flaw, but this workaround will do for now
+
+        updateColdStorageCalculations(dto, dto.getHtmlElement(1), newMass); //simulate manual change of numTrucks, to avoid redundant code
+        return newMass; //return new mass; technically only needed for initial caller, like could be the case in below code
     }
+
+    const index = getChangedIndex(dto, changedElement);
+    dto.setValue(index, changedElement.querySelector('input').value);
+
+    switch (index) {
+        case 0: //days changed
+            if(glob_temp_log)console.log("days changed, index: " + index);
+            //update kWh and hydrogen based on days
+            const days_dto0 = dto.getValue(0);
+            const kWh_dto0 = dto.getValue(1);
+            const hydrogen_dto0 = kWh_dto0 * days_dto0 * constants.kWhToHydrogen; // TODO pull from constants
+
+            dto.setValue(2, hydrogen_dto0);
+            break;
+        case 1: //kWh per day changed
+            if(glob_temp_log)console.log("kWh per day changed, index: " + index);
+            //update days and hydrogen based on kWh per day
+            const kWh_dto1 = dto.getValue(1);
+            const days_dto1 = dto.getValue(0);
+            const hydrogen_dto1 = kWh_dto1 * days_dto1 * constants.kWhToHydrogen; // TODO pull from constants
+
+            dto.setValue(2, hydrogen_dto1);
+            break;
+        case 2: //hydrogen changed -> extend days
+            if(glob_temp_log)console.log("hydrogen changed, index: " + index);
+            //update days and kWh per day based on hydrogen
+            const hydrogen_dto2 = dto.getValue(2);
+            const kWh_tot_dto2 = hydrogen_dto2 / constants.kWhToHydrogen; // TODO pull from constants
+            const kWh_per_day_dto2 = dto.getValue(1);
+            const days_dto2 = Math.ceil( kWh_tot_dto2/ kWh_per_day_dto2);
+
+            dto.setValue(0, days_dto2);
+            break;
+
+    }
+
+    return -1 //changes here dont have an effect on mass, and i cant return the original mass; return -1 is a signal and edge case implemented in the base class and prevents recursive call
 }
 
+//TODO change so cod tons relates to new field numMarkets
 function updateSupermarketCalculations(dto, changedElement = null, newMass) {
-    if (changedElement === null) console.log('changed different element');
-    const days = dto.getHtmlElement(0);
-    const kWhd = dto.getHtmlElement(1);
-    const hydrogen = dto.getHtmlElement(2);
-    if (glob_temp_log) {
+    //dto contains: days, kWh per day, H2(tons)
+    if (changedElement === null) { //induced change; update mass and simulate mass dependent field change through single call recursion
+        //TODO test first if kwh/day has been changed before to avoid overwriting user changed settings unnoticed
 
-        console.log('update supermarket',
-            `\nLabel + Value: ${days.labelElement.textContent} ${days.querySelector('input').value}`,
-            `\nLabel + Value: ${kWhd.labelElement.textContent} ${kWhd.querySelector('input').value}`,
-            `\nLabel + Value: ${hydrogen.labelElement.textContent}  ${hydrogen.querySelector('input').value}`
-        );
+        //the cold storage is designed for 5000 tons; if that threshold is exceeded, additional kWh will be added;
+        // if the limit is subceeded, we calculate with a static power consumption of the maximum capacity
+        let kWhPerDay;
+        if(newMass > constants.values.coldStorage.maxCapacity) {
+            kWhPerDay = newMass * constants.values.coldStorage.maxCapRatio; //calculate new kWh per day based on mass
+        }else{
+            kWhPerDay = constants.values.coldStorage.kWhPerDay; //dto.getValue(1); //use the static value //TODO
+        }
+
+
+        dto.setValue(1, kWhPerDay);
+        dto.getHtmlElement(1).querySelector('input').value = kWhPerDay; //update the html element to reflect the new value;
+        //only needed because baseclass, which would do this through the eventdriven approach, fires after the recursive call,
+        // but because the field has its old value, which is then read in when we simulate a manual change of codTons, we need to do this here
+        //seems like an architectural flaw, but this workaround will do for now
+
+        updateColdStorageCalculations(dto, dto.getHtmlElement(1), newMass); //simulate manual change of numTrucks, to avoid redundant code
+        return newMass; //return new mass; technically only needed for initial caller, like could be the case in below code
     }
+
+    const index = getChangedIndex(dto, changedElement);
+    dto.setValue(index, changedElement.querySelector('input').value);
+
+    switch (index) {
+        case 0: //days changed
+            if(glob_temp_log)console.log("days changed, index: " + index);
+            //update kWh and hydrogen based on days
+            const days_dto0 = dto.getValue(0);
+            const kWh_dto0 = dto.getValue(1);
+            const hydrogen_dto0 = kWh_dto0 * days_dto0 * constants.kWhToHydrogen; // TODO pull from constants
+
+            dto.setValue(2, hydrogen_dto0);
+            break;
+        case 1: //kWh per day changed
+            if(glob_temp_log)console.log("kWh per day changed, index: " + index);
+            //update days and hydrogen based on kWh per day
+            const kWh_dto1 = dto.getValue(1);
+            const days_dto1 = dto.getValue(0);
+            const hydrogen_dto1 = kWh_dto1 * days_dto1 * constants.kWhToHydrogen; // TODO pull from constants
+
+            dto.setValue(2, hydrogen_dto1);
+            break;
+        case 2: //hydrogen changed -> extend days
+            if(glob_temp_log)console.log("hydrogen changed, index: " + index);
+            //update days and kWh per day based on hydrogen
+            const hydrogen_dto2 = dto.getValue(2);
+            const kWh_tot_dto2 = hydrogen_dto2 / constants.kWhToHydrogen; // TODO pull from constants
+            const kWh_per_day_dto2 = dto.getValue(1);
+            const days_dto2 = Math.ceil( kWh_tot_dto2/ kWh_per_day_dto2);
+
+            dto.setValue(0, days_dto2);
+            break;
+
+    }
+
+    return -1 //changes here dont have an effect on mass, and i cant return the original mass; return -1 is a signal and edge case implemented in the base class and prevents recursive call
+
 }
 
 function updateConstants(dto, changedElement = null, newMass) {
