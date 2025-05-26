@@ -255,7 +255,7 @@ class BaseClassStripped {
     }
 
     preUpdate(changedElement) {
-        console.warn('preupdate start');
+        if(glob_temp_log)console.warn('preupdate start');
         const newMass = this.updaterMethod(this.dataset, changedElement, 0);
 
         // Pass 'this' as the originalCaller the node we started from
@@ -263,9 +263,12 @@ class BaseClassStripped {
 
         this.adjustHTMLfromDTO(this.dataset);
 
-        if(newMass === undefined || newMass == null|| newMass < 0) {
+        if(newMass < 0) {
             console.warn('New mass is undefined or negative, indicating that the mass remains unchanged; returning early');
             return;
+        }else if(newMass === undefined || newMass == null){ //mass doesnt change, but values need updating; see updateConstants
+            this.next.updateNeighbors(newMass, this);
+            console.warn('mass is undefined, constants induced value refresh; calling updateNeighbors nevertheless');
         }else{
             this.next.updateNeighbors(newMass, this);
         }
@@ -284,7 +287,14 @@ class BaseClassStripped {
             return;
         }
 
-        this.updaterMethod(this.dataset, null, newMass);
+        if(originalCaller === globalThis.constantsField) {
+            if(glob_temp_log)console.log('Updating neighbors from constants field');
+            this.updaterMethod(this.dataset, originalCaller, newMass)
+        }else{
+            if(glob_temp_log)console.log(`normal update`);
+            this.updaterMethod(this.dataset, null, newMass);
+        }
+
         this.adjustHTMLfromDTO(this.dataset);
 
         this.next.updateNeighbors(newMass, originalCaller);
@@ -293,14 +303,16 @@ class BaseClassStripped {
 
     adjustHTMLfromDTO(dto) {
         this.disableUpdate = true; // temporarily disable updates to prevent recursion
-        console.log(`Adjusting HTML elements for ${this.label} with dataset: ${dto.toString()}`);
+        //console.log(`Adjusting HTML elements for ${this.label} with dataset: ${dto.toString()}`);
         for (const { label, defaultVal, ratio, currentVal, htmlElement, iterator } of dto.forEachValue()) {
             const inputElement = htmlElement.querySelector('input');
             //console.log(`Adjusting HTML element: ${htmlElement}, input: ${htmlElement.querySelector('input')}, value: ${htmlElement.querySelector('input').value} for ${label}: currentVal=${currentVal}, defaultVal=${defaultVal}`);
             if (inputElement) {
                 //inputElement.value = currentVal !== null ? Number(currentVal).toFixed(2) : defaultVal;
                 //inputElement.value = currentVal !== null ? Number(currentVal).toLocaleString(undefined, { maximumFractionDigits: 2 }): defaultVal;
+
                 if(this.getName()!== '_Constants') { //TODO!! fix this ugly piece of hardcoded edgecase bullshit
+                    // change the prototype of the method in the instantiation process instead; see also updateNeighbors
                     inputElement.value = currentVal !== null ? parseFloat(Number(currentVal).toFixed(2)) : defaultVal;
                 }else{
                     inputElement.value = currentVal !== null ? Number(currentVal) : defaultVal;
@@ -444,7 +456,27 @@ function initializeFields() {
         ['H₂ (tons):', 0, null, null, null]
     ]), updateSupermarketCalculations, loopExitCallback);
 
-    const constantsField = new BaseClassStripped('_Constants', '.constants-field', new DTO([
+
+    DTO.prototype.getDieselToKwh = function () {
+        return this.getValue(0); // Assuming the diesel to kWh value is at index 0
+    }
+    DTO.prototype.getKWhToHydrogen = function () {
+        return this.getValue(1); // Assuming the kWh to Hydrogen value is at index 1
+    }
+    DTO.prototype.getTruckLitresPer100km = function () {
+        return this.getValue(2); // Assuming the truck litres per 100km value is at index 2
+    }
+    DTO.prototype.getShipLitresPerTon = function () {
+        return this.getValue(3); // Assuming the ship litres per ton value is at index 3
+    }
+    DTO.prototype.getTonsSoldPerSupermarket = function () {
+        return this.getValue(4); // Assuming the tons sold per supermarket value is at index 4
+    }
+    DTO.prototype.getHarborKWhPerTon = function () {
+        return this.getValue(5); // Assuming the harbor kWh per ton value is at index 5
+    }
+
+    globalThis.constantsField = new BaseClassStripped('_Constants', '.constants-field', new DTO([
         ['Diesel to kWh:', constants.dieselToKWh, null, null, null],
         ['kWh to H₂:', constants.kWhToHydrogen, null, null, null],
         ['Truck litres per 100km:', constants.values.transport.dieselPer100km, null, null, null],
@@ -452,8 +484,17 @@ function initializeFields() {
         ['Tons sold per Supermarket:', constants.values.supermarket.minKWh, null, null, null], //TODO
         ['Harbor kWh per ton:', constants.values.harbor.ratio, null, null, null],
 
-
     ]), updateConstants, loopExitCallback);
+
+   /* // unreadable dynamically add methods to the DTO prototype for constantsField
+    constantsField.dataset.forEachValue(({ label, iterator }) => {
+        const methodName = `get${label.replace(/[^a-zA-Z0-9]/g, '')}`; // create a method name by sanitizing the label
+        DTO.prototype[methodName] = function () {
+            return this.getValue(iterator);
+        };
+    }); */
+
+
 
     const fieldsList = [ trawler, harbor, transport, coldStorage, supermarket ];
 
@@ -490,7 +531,7 @@ function initializeFields() {
             const label = field.getName();
             const kWh = Number(field.getKWh());
 
-            console.log(`Field: ${label}, kWh: ${kWh}`);
+            //console.log(`Field: ${label}, kWh: ${kWh}`);
             labels.push(label);
             data.push(kWh);
             totalKWh += kWh;
@@ -529,8 +570,8 @@ function initializeFields() {
 
     const chartRef = initializeChart();
     callbackContainer.callback = () => {
-        console.log('Loop exit callback called');
-        console.log('results field:' + resultsField.toString());
+        //console.log('Loop exit callback called');
+        //console.log('results field:' + resultsField.toString());
         resultsField.updateResultsField(fieldsList, chartRef);
     };
 
@@ -654,6 +695,11 @@ function getChangedIndex(dto, changedElement){
     //console.log("\t\t this dataset" + this.dataset.toString());
     //console.log("\t\t this dto" + dto.getDataset().toString());
 
+    if(changedElement === constants){
+
+    }
+
+
     //dto.forEachValue(({ label, defaultVal, ratio, currentVal, htmlElement, iterator }) => {
     //for (const { label, defaultVal, ratio, currentVal, htmlElement, iterator } of this.dataset.forEachValue()) { //this refers to the caller; and the base class
     for (const { label, defaultVal, ratio, currentVal, htmlElement, iterator } of dto.forEachValue()) {
@@ -673,7 +719,21 @@ function getChangedIndex(dto, changedElement){
 // update functions for each section, change later to oop model with self referencing field managing objects
 //trawler dto contains: //codTons, dieselLiters, kWh, hydrogen
 function updateTrawlerCalculations(dto, changedElement = null, newMass) {
-    console.log('update trawler calculations, new mass:', newMass, "changedElement: ", changedElement);
+    if(changedElement === globalThis.constantsField){ // custom edgecase to avoid having to change method signature; recalculate every constant dependent field
+        const codTons = dto.getValue(0);
+        const dieselLiters = codTons * globalThis.constantsField.dataset.getShipLitresPerTon();
+        const kWh = dieselLiters * globalThis.constantsField.dataset.getDieselToKwh();
+        const hydrogen = kWh * globalThis.constantsField.dataset.getKWhToHydrogen();
+
+        dto.setValue(0, codTons);
+        dto.setValue(1, dieselLiters);
+        dto.setValue(2, kWh);
+        dto.setValue(3, hydrogen);
+
+        return;
+    }
+
+
     if (changedElement === null){
         //induced update, changed different element, recalculate based on new mass
         if(glob_temp_log)console.log("prechange:", dto.toString());
@@ -774,6 +834,12 @@ function updateTrawlerCalculations(dto, changedElement = null, newMass) {
 }
 
 function updateHarborCalculations(dto, changedElement = null, newMass) {
+    if(changedElement === globalThis.constantsField){ // custom edgecase to avoid having to change method signature; recalculate every constant dependent field
+        const codTons = dto.getValue(0);
+        return;
+    }
+
+
     if (changedElement === null){
         //induced update, changed different element, recalculate based on new mass
 
@@ -817,6 +883,12 @@ function updateHarborCalculations(dto, changedElement = null, newMass) {
 }
 
 function updateTransportCalculations(dto, changedElement = null, newMass) {
+    if(changedElement === globalThis.constantsField){ // custom edgecase to avoid having to change method signature; recalculate every constant dependent field
+        const codTons = dto.getValue(0);
+        return;
+    }
+
+
     //console.log('update transport calculations, new mass: ', newMass, "changedElement: ", changedElement);
 
     //dto contains: numTrucks, distance, kWh, H2(tons)
@@ -900,6 +972,11 @@ function updateTransportCalculations(dto, changedElement = null, newMass) {
 
 //TODO adjust mechanisms, kwh/day consumption will realistically not correlate linearly with mass
 function updateColdStorageCalculations(dto, changedElement = null, newMass) {
+    if(changedElement === globalThis.constantsField){ // custom edgecase to avoid having to change method signature; recalculate every constant dependent field
+        const codTons = dto.getValue(0);
+        return;
+    }
+
     //dto contains: days, kWh per day, H2(tons)
     if (changedElement === null) { //induced change; update mass and simulate mass dependent field change through single call recursion
         //TODO test first if kwh/day has been changed before to avoid overwriting user changed settings unnoticed
@@ -966,6 +1043,11 @@ function updateColdStorageCalculations(dto, changedElement = null, newMass) {
 
 //TODO change so cod tons relates to new field numMarkets
 function updateSupermarketCalculations(dto, changedElement = null, newMass) {
+    if(changedElement === globalThis.constantsField){ // custom edgecase to avoid having to change method signature; recalculate every constant dependent field
+        const codTons = dto.getValue(0);
+        return;
+    }
+
     //dto contains: days, kWh per day, H2(tons)
     if (changedElement === null) { //induced change; update mass and simulate mass dependent field change through single call recursion
         //TODO test first if kwh/day has been changed before to avoid overwriting user changed settings unnoticed
@@ -1033,9 +1115,14 @@ function updateSupermarketCalculations(dto, changedElement = null, newMass) {
 }
 
 function updateConstants(dto, changedElement = null, newMass) {
-    if (glob_temp_log) {
-        console.log(`update constants: ${dto}`);
+   //because of this hardcoded edgecase stuff up there, the changed element will be the constantsField
+    if( changedElement === null) {
+        return;
     }
+
+    const index= getChangedIndex(dto, changedElement);
+    dto.setValue(index, changedElement.querySelector('input').value);
+
 }
 
 function updateResults(dto, changedElement = null, newMass) {
