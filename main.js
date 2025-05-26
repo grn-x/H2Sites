@@ -1,9 +1,10 @@
-import { modalSystem } from './intro.js';
+import {modalSystem} from './intro.js';
+
 const DEBUG_MODE = false;
 
 let constants = { // TODO hydrogen mass is closer to kg than tons; factor 1000
     dieselToKWh: 10.5,      // kWh per liter of diesel
-    kWhToHydrogen: 0.03,    // tons of hydrogen per kWh
+    kWhToHydrogen: 0.00003,    // tons of hydrogen per kWh //edit: this is not tons per kWh, but kg per kWh, so 0.03 needs to be corrected to 0.00003
     values: {
         trawler: {
             defaultDieselConsumption: 140000,
@@ -165,11 +166,11 @@ class DTO { //proxy object?
     }
 
     setKWh(kWh){
-        this.kWh = kWh;
+        this.kWh = Number(kWh);
     }
 
     getKWh(){
-        return this.kWh;
+        return Number(this.kWh);
     }
 
     getList(index){
@@ -185,7 +186,7 @@ class DTO { //proxy object?
 
 
 class BaseClassStripped {
-    constructor(querySelectorStr, config, updaterMethod) {
+    constructor(chartName, querySelectorStr, config, updaterMethod, loopExitCallback = null) {
         //this.parentField = document.querySelector('.interactive-field[data-info="Trawler Info"]');
         this.parentField = document.querySelector(querySelectorStr);
         this.dataset = config;
@@ -193,8 +194,10 @@ class BaseClassStripped {
         this.element = this.createElement();
         this.next = null; // For linked loop
         this.updaterMethod = updaterMethod;
+        this.label = chartName;
         this.initializeFields();
         this.disableUpdate = false; // Flag to prevent unwanted recursion
+        this.loopExitCallback = loopExitCallback || (() => {}); // used to update the results tab when finished
     }
 
     initializeFields() {
@@ -277,6 +280,7 @@ class BaseClassStripped {
 
     updateNeighbors(newMass, originalCaller) {
         if (this === originalCaller) {
+            this.loopExitCallback();
             return;
         }
 
@@ -289,13 +293,19 @@ class BaseClassStripped {
 
     adjustHTMLfromDTO(dto) {
         this.disableUpdate = true; // temporarily disable updates to prevent recursion
-
+        console.log(`Adjusting HTML elements for ${this.label} with dataset: ${dto.toString()}`);
         for (const { label, defaultVal, ratio, currentVal, htmlElement, iterator } of dto.forEachValue()) {
             const inputElement = htmlElement.querySelector('input');
             //console.log(`Adjusting HTML element: ${htmlElement}, input: ${htmlElement.querySelector('input')}, value: ${htmlElement.querySelector('input').value} for ${label}: currentVal=${currentVal}, defaultVal=${defaultVal}`);
             if (inputElement) {
-                inputElement.value = currentVal !== null ? currentVal : defaultVal;
-            }
+                //inputElement.value = currentVal !== null ? Number(currentVal).toFixed(2) : defaultVal;
+                //inputElement.value = currentVal !== null ? Number(currentVal).toLocaleString(undefined, { maximumFractionDigits: 2 }): defaultVal;
+                if(this.getName()!== '_Constants') { //TODO!! fix this ugly piece of hardcoded edgecase bullshit
+                    inputElement.value = currentVal !== null ? parseFloat(Number(currentVal).toFixed(2)) : defaultVal;
+                }else{
+                    inputElement.value = currentVal !== null ? Number(currentVal) : defaultVal;
+                }
+                }
         }
 
         if(glob_temp_log)console.log(`Adjusted HTML elements for ${this.label} with dataset: ${dto.toString()}`);
@@ -316,6 +326,14 @@ class BaseClassStripped {
         //newNode.next = this; //who wrote this shit //now the loop will kinda crash if its not closed correctly
         this.next = newNode
         //if(newNode.next === null) newNode.next = this;
+    }
+
+    getName(){
+        return this.label;
+    }
+
+    getKWh(){
+        return this.dataset.getKWh();
     }
 
     toString(){
@@ -385,40 +403,48 @@ function calculateHydrogen(dieselLiters) {
 //[label:Str, defaultVal:int, ratio:float(optional), currentVal:float, htmlElement:HTMLElement(will be set by the baseclass itsef)]
 
 function initializeFields() {
-    const trawler = new BaseClassStripped('.interactive-field[data-info="Trawler Info"]', new DTO([
+    // create a mutable callback container, to avoid circular dependency issues
+    const callbackContainer = {
+        callback: () => {} // placeholder
+    };
+    // helper function that calls the current callback
+    const loopExitCallback = () => callbackContainer.callback();
+//all of this shouldnt be necessary, the error was elsewhere
+
+    const trawler = new BaseClassStripped('Trawler','.interactive-field[data-info="Trawler Info"]', new DTO([
         ['Cod (tons):', constants.values.trawler.defaultCodCatch, constants.values.trawler.defaultCodCatch/constants.values.trawler.defaultDieselConsumption, null, null], //ratio is codTons/dieselLiters
         ['Diesel (L):', constants.values.trawler.defaultDieselConsumption, null, null, null], //ratio is dieselLiters/kwh set by the constants object
         ['kWh:', 0, null, null, null],
         ['H₂ (tons):', 0, null, null, null]
-    ]), updateTrawlerCalculations);
+    ]), updateTrawlerCalculations, loopExitCallback);
 
-    const harbor = new BaseClassStripped('.interactive-field[data-info="Hafen Info"]', new DTO([
+    const harbor = new BaseClassStripped('Harbor', '.interactive-field[data-info="Hafen Info"]', new DTO([
         ['kWh:', constants.values.harbor.defaultMinKWh, null, null, null],
         ['H₂ (tons):', 0, null, null, null]
-    ]), updateHarborCalculations);
+    ]), updateHarborCalculations, loopExitCallback);
 
-    const transport = new BaseClassStripped('.interactive-field[data-info="Transport Info"]', new DTO([
+    const transport = new BaseClassStripped('Transport', '.interactive-field[data-info="Transport Info"]', new DTO([
         ['Trucks:', constants.values.transport.defaultTrucks, null, null, null],
         ['Distance (km):', 100, null, null, null],
         ['kWh:', 0, null, null, null],
         ['H₂ (tons):', 0, null, null, null]
-    ]), updateTransportCalculations);
+    ]), updateTransportCalculations, loopExitCallback);
 
-    const coldStorage = new BaseClassStripped('.interactive-field[data-info="Kühlhaus Info"]', new DTO([
+    const coldStorage = new BaseClassStripped('Cold Storage', '.interactive-field[data-info="Kühlhaus Info"]', new DTO([
         ['Days:', constants.values.coldStorage.days, null, null, null],
         ['kWh/day:', constants.values.coldStorage.kWhPerDay, null, null, null],
         ['H₂ (tons):', 0, null, null, null]
 
-    ]), updateColdStorageCalculations);
+    ]), updateColdStorageCalculations, loopExitCallback);
 
-    const supermarket = new BaseClassStripped('.interactive-field[data-info="Supermarkt Info"]', new DTO([
+    const supermarket = new BaseClassStripped('Supermarkets', '.interactive-field[data-info="Supermarkt Info"]', new DTO([
         //['Supermarkets: ', 10, null, null, null], //figure out average supermarket cod ton supply
         ['Days:', constants.values.coldStorage.days, null, null, null],
         ['kWh/day:', constants.values.supermarket.minKWh, null, null, null],
         ['H₂ (tons):', 0, null, null, null]
-    ]), updateSupermarketCalculations);
+    ]), updateSupermarketCalculations, loopExitCallback);
 
-    const constantsField = new BaseClassStripped('.constants-field', new DTO([
+    const constantsField = new BaseClassStripped('_Constants', '.constants-field', new DTO([
         ['Diesel to kWh:', constants.dieselToKWh, null, null, null],
         ['kWh to H₂:', constants.kWhToHydrogen, null, null, null],
         ['Truck litres per 100km:', constants.values.transport.dieselPer100km, null, null, null],
@@ -427,11 +453,13 @@ function initializeFields() {
         ['Harbor kWh per ton:', constants.values.harbor.ratio, null, null, null],
 
 
-    ]), updateConstants);
+    ]), updateConstants, loopExitCallback);
 
+    const fieldsList = [ trawler, harbor, transport, coldStorage, supermarket ];
 
 
     //Overwrite the createElement method for the results field only using prototype
+    //Additionally create a new Method for updating own pie chart and results field
     const originalUpdateValue = BaseClassStripped.prototype.createElement();
     BaseClassStripped.prototype.createElement = function (label, defaultVal) {
         const container = document.createElement('div');
@@ -452,12 +480,41 @@ function initializeFields() {
 
         return container;
     };
-    const resultsField = new BaseClassStripped('.results-field', new DTO([
+    BaseClassStripped.prototype.updateResultsField = function (fieldsList, chart) {
+        let totalKWh = 0;
+        const labels = [];
+        const data = [];
+
+        //gather labels and kWh values
+        for (const field of fieldsList) {
+            const label = field.getName();
+            const kWh = Number(field.getKWh());
+
+            console.log(`Field: ${label}, kWh: ${kWh}`);
+            labels.push(label);
+            data.push(kWh);
+            totalKWh += kWh;
+        }
+
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = data;
+        chart.update();
+
+        const totalH2 = totalKWh * constants.kWhToHydrogen;
+        this.dataset.setValue(0, totalKWh);
+        this.dataset.setValue(1, totalH2);
+        //this.dataset.getHtmlElement(0).querySelector('input').value = totalKWh;
+        //this.dataset.getHtmlElement(1).querySelector('input').value = totalH2;
+        this.adjustHTMLfromDTO(this.dataset);
+    };
+
+    const resultsField = new BaseClassStripped('_Results', '.results-field', new DTO([
         ['Total kWh:', 0, null, null, null],
         ['Total H₂ (tons):', 0, null, null, null]
-    ]), updateResults);
-    BaseClassStripped.prototype.createElement = originalUpdateValue;
+    ]), updateResults, loopExitCallback);
 
+    BaseClassStripped.prototype.createElement = originalUpdateValue;
+    //BaseClassStripped.prototype.updateResultsField = null; // reset the method to its original state
 
 
     //will insert the calling field before the passed field, name might be misleading
@@ -470,10 +527,14 @@ function initializeFields() {
     resultsField.insertBefore(constantsField);
 
 
+    const chartRef = initializeChart();
+    callbackContainer.callback = () => {
+        console.log('Loop exit callback called');
+        console.log('results field:' + resultsField.toString());
+        resultsField.updateResultsField(fieldsList, chartRef);
+    };
 
 
-
-    initializeChart();
 
 }
 
@@ -526,7 +587,7 @@ function initializeChart() {
         }
     };
 
-    new Chart(ctx, config);
+    return new Chart(ctx, config);
 }
 
 
@@ -708,6 +769,7 @@ function updateTrawlerCalculations(dto, changedElement = null, newMass) {
             }
         });*/
 
+    dto.setKWh(dto.getValue(2));
     return dto.getValue(0); //return codTons, needed if this updater method was the initial caller and the new mass is to be passed to the next updater method
 }
 
@@ -750,6 +812,7 @@ function updateHarborCalculations(dto, changedElement = null, newMass) {
             break;
     }
 
+    dto.setKWh(dto.getValue(0));
     return dto.getValue(0) / constants.values.harbor.ratio;
 }
 
@@ -828,12 +891,9 @@ function updateTransportCalculations(dto, changedElement = null, newMass) {
         }
 
 
-
+    dto.setKWh(dto.getValue(2));
         //index case
-const returns = dto.getValue(0) * constants.values.transport.tonsPerTruck;
-    //if(glob_temp_log)
-    if(glob_temp_log)console.log("transport returns: ", returns);
-    return returns;  //return calculated mass, needed if this updater method was the initial caller and the new mass is to be passed to the next updater method
+    return dto.getValue(0) * constants.values.transport.tonsPerTruck;  //return calculated mass, needed if this updater method was the initial caller and the new mass is to be passed to the next updater method
 
 
 }
@@ -899,7 +959,9 @@ function updateColdStorageCalculations(dto, changedElement = null, newMass) {
 
     }
 
+    dto.setKWh(dto.getValue(1) * dto.getValue(0)); //set kWh to days * kWh per day
     return -1 //changes here dont have an effect on mass, and i cant return the original mass; return -1 is a signal and edge case implemented in the base class and prevents recursive call
+    //TODO return dtos mass instead; implement consistent mass field updating first
 }
 
 //TODO change so cod tons relates to new field numMarkets
@@ -963,7 +1025,10 @@ function updateSupermarketCalculations(dto, changedElement = null, newMass) {
 
     }
 
+    dto.setKWh(dto.getValue(1) * dto.getValue(0)); //set kWh to days * kWh per day
+
     return -1 //changes here dont have an effect on mass, and i cant return the original mass; return -1 is a signal and edge case implemented in the base class and prevents recursive call
+    //TODO return dtos mass instead; implement consistent mass field updating first
 
 }
 
