@@ -173,6 +173,14 @@ class DTO { //proxy object?
         return Number(this.kWh);
     }
 
+    setMass(mass){
+        this.mass = mass;
+    }
+
+    getMass(){
+        return this.mass;
+    }
+
     getList(index){
         return this.dataset[index];
     }
@@ -729,7 +737,6 @@ function updateTrawlerCalculations(dto, changedElement = null, newMass) {
         dto.setValue(1, dieselLiters);
         dto.setValue(2, kWh);
         dto.setValue(3, hydrogen);
-
         return;
     }
 
@@ -742,8 +749,9 @@ function updateTrawlerCalculations(dto, changedElement = null, newMass) {
         dto.getHtmlElement(0).querySelector('input').value = newMass; //update the html element to reflect the new value;
         //only needed because baseclass would do this after the recursive call, but because we are doing this recursively, and simulate a manual change of codTons, we need to do this here
         //seems like an architectural flaw, but this workaround will do for now
-        updateTrawlerCalculations(dto, dto.getHtmlElement(0), newMass); //simulate manual change of codTons, to avoid redundant code
+        updateTrawlerCalculations(dto, dto.getHtmlElement(0), newMass); //simulate manual change of codTons, to avoid redundant code //superficial kwh and mass fields also get updated here
         if(glob_temp_log)console.log("postchange:", dto.toString());
+
         return newMass; //return new mass; technically only needed for initial caller, like could be the case in below code
     }
     //determine changed value -> update other values based on that
@@ -830,13 +838,19 @@ function updateTrawlerCalculations(dto, changedElement = null, newMass) {
         });*/
 
     dto.setKWh(dto.getValue(2));
+    dto.setMass(dto.getValue(0))
     return dto.getValue(0); //return codTons, needed if this updater method was the initial caller and the new mass is to be passed to the next updater method
 }
 
 function updateHarborCalculations(dto, changedElement = null, newMass) {
     if(changedElement === globalThis.constantsField){ // custom edgecase to avoid having to change method signature; recalculate every constant dependent field
-        const codTons = dto.getValue(0);
-        return;
+        const codTons = dto.getMass();
+        const kWh = codTons * globalThis.constantsField.dataset.getHarborKWhPerTon();
+
+        updateHarborCalculations(dto, dto.getHtmlElement(0), newMass); //simulate manual change of kWh, to avoid redundant code
+
+        dto.setValue(0, kWh);
+        return codTons; //return new mass; technically only needed for initial caller, like could be the case in below code
     }
 
 
@@ -850,6 +864,7 @@ function updateHarborCalculations(dto, changedElement = null, newMass) {
         //seems like an architectural flaw, but this workaround will do for now
 
         updateHarborCalculations(dto, dto.getHtmlElement(0), newMass); //simulate manual change of kWh, to avoid redundant code
+
 
         return newMass; //return new mass; technically only needed for initial caller, like could be the case in below code
 
@@ -879,13 +894,19 @@ function updateHarborCalculations(dto, changedElement = null, newMass) {
     }
 
     dto.setKWh(dto.getValue(0));
+    console.log(dto.getValue(0) / constants.values.harbor.ratio + "harbor update");
+    dto.setMass(dto.getValue(0) / constants.values.harbor.ratio);
     return dto.getValue(0) / constants.values.harbor.ratio;
 }
 
 function updateTransportCalculations(dto, changedElement = null, newMass) {
     if(changedElement === globalThis.constantsField){ // custom edgecase to avoid having to change method signature; recalculate every constant dependent field
-        const codTons = dto.getValue(0);
-        return;
+        //const codTons = dto.getMass();
+        //const numTrucks = Math.ceil(codTons / constants.values.transport.tonsPerTruck);
+
+        updateTransportCalculations(dto, dto.getHtmlElement(0), newMass); //simulate manual change of numTrucks, to avoid redundant code; in this case newMass shoudld be null
+
+        return dto.getMass(); // technically only needed for initial caller
     }
 
 
@@ -965,6 +986,7 @@ function updateTransportCalculations(dto, changedElement = null, newMass) {
 
     dto.setKWh(dto.getValue(2));
         //index case
+    dto.setMass(dto.getValue(0) * constants.values.transport.tonsPerTruck); //field not needed here
     return dto.getValue(0) * constants.values.transport.tonsPerTruck;  //return calculated mass, needed if this updater method was the initial caller and the new mass is to be passed to the next updater method
 
 
@@ -973,8 +995,9 @@ function updateTransportCalculations(dto, changedElement = null, newMass) {
 //TODO adjust mechanisms, kwh/day consumption will realistically not correlate linearly with mass
 function updateColdStorageCalculations(dto, changedElement = null, newMass) {
     if(changedElement === globalThis.constantsField){ // custom edgecase to avoid having to change method signature; recalculate every constant dependent field
-        const codTons = dto.getValue(0);
-        return;
+        const codTons = dto.getMass();
+        updateColdStorageCalculations(dto, null, codTons); //simulate change, to avoid redundant code; execute induced change
+        return codTons; // technically only needed for initial caller
     }
 
     //dto contains: days, kWh per day, H2(tons)
@@ -996,6 +1019,8 @@ function updateColdStorageCalculations(dto, changedElement = null, newMass) {
         //only needed because baseclass, which would do this through the eventdriven approach, fires after the recursive call,
         // but because the field has its old value, which is then read in when we simulate a manual change of codTons, we need to do this here
         //seems like an architectural flaw, but this workaround will do for now
+
+        dto.setMass(newMass); // the only time we have access to newMass
 
         updateColdStorageCalculations(dto, dto.getHtmlElement(1), newMass); //simulate manual change of numTrucks, to avoid redundant code
         return newMass; //return new mass; technically only needed for initial caller, like could be the case in below code
@@ -1045,6 +1070,7 @@ function updateColdStorageCalculations(dto, changedElement = null, newMass) {
 function updateSupermarketCalculations(dto, changedElement = null, newMass) {
     if(changedElement === globalThis.constantsField){ // custom edgecase to avoid having to change method signature; recalculate every constant dependent field
         const codTons = dto.getValue(0);
+        //missing code
         return;
     }
 
