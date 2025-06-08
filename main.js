@@ -33,6 +33,9 @@ let constants = { // TODO hydrogen mass is closer to kg than tons; factor 1000
         supermarket: {
             minKWh: 4000,
             maxKWh: 10000,
+            //maxDays: 7, //if the fish is stored longer than 7 days, it needs to
+            kWhPerMarketPerDay: (4000+10000)/2,
+            tonsPerSupermarket: 15, // TODO: Add tooltip : "Anstatt der realistischen 15 kg pro Supermarkt pro Tag wird hier von 15 Tonnen ausgegangen"
             area: {
                 min: 800,
                 max: 2500
@@ -489,7 +492,7 @@ function initializeFields() {
         ['kWh to H₂:', constants.kWhToHydrogen, null, null, null],
         ['Truck litres per 100km:', constants.values.transport.dieselPer100km, null, null, null],
         ['Ship litres per ton:', constants.values.trawler.ratio, null, null, null],
-        ['Tons sold per Supermarket:', constants.values.supermarket.minKWh, null, null, null], //TODO
+        ['Tons sold per Supermarket:', constants.values.supermarket.tonsPerSupermarket, null, null, null],
         ['Harbor kWh per ton:', constants.values.harbor.ratio, null, null, null],
 
     ]), updateConstants, loopExitCallback);
@@ -767,9 +770,9 @@ function updateTrawlerCalculations(dto, changedElement = null, newMass) {
             if(glob_temp_log)console.log("codTons changed, index: " + index);
             //update dieselLiters, kWh and hydrogen based on codTons
             const codTons_dto0 = dto.getValue(0);
-            const dieselLiters_dto0 = codTons_dto0 * constants.values.trawler.ratio; // TODO pull from constants
-            const kWh_dto0 = dieselLiters_dto0 * constants.dieselToKWh; // TODO pull from constants
-            const hydrogen_dto0 = calculateHydrogen(dieselLiters_dto0); // TODO pull from constants
+            const dieselLiters_dto0 = codTons_dto0 * globalThis.constantsField.dataset.getShipLitresPerTon();
+            const kWh_dto0 = dieselLiters_dto0 * globalThis.constantsField.dataset.getDieselToKwh(); //constants.dieselToKWh; // TODO pull from constants
+            const hydrogen_dto0 = kWh_dto0*globalThis.constantsField.dataset.getKWhToHydrogen(); //calculateHydrogen(dieselLiters_dto0); // TODO pull from constants
 
             dto.setValue(1, dieselLiters_dto0);
             dto.setValue(2, kWh_dto0);
@@ -779,9 +782,9 @@ function updateTrawlerCalculations(dto, changedElement = null, newMass) {
             if(glob_temp_log)console.log("dieselLiters changed, index: " + index);
             //update codTons, kWh and hydrogen based on dieselLiters
             const dieselLiters_dto1 = dto.getValue(1);
-            const codTons_dto1 = dieselLiters_dto1 / constants.values.trawler.ratio; // TODO pull from constants
-            const kWh_dto1 = dieselLiters_dto1 * constants.dieselToKWh;    // TODO pull from constants
-            const hydrogen_dto1 = calculateHydrogen(dieselLiters_dto1); // TODO pull from constants
+            const codTons_dto1 = dieselLiters_dto1 / globalThis.constantsField.dataset.getShipLitresPerTon(); //constants.values.trawler.ratio; // TODO pull from constants
+            const kWh_dto1 = dieselLiters_dto1 * globalThis.constantsField.dataset.getDieselToKwh() //constants.dieselToKWh;    // TODO pull from constants
+            const hydrogen_dto1 = kWh_dto1*globalThis.constantsField.dataset.getKWhToHydrogen(); //calculateHydrogen(dieselLiters_dto1); // TODO pull from constants
 
             dto.setValue(0, codTons_dto1);
             dto.setValue(2, kWh_dto1);
@@ -791,9 +794,9 @@ function updateTrawlerCalculations(dto, changedElement = null, newMass) {
             if(glob_temp_log)console.log("kWh changed, index: " + index);
             //update codTons, dieselLiters and hydrogen based on kWh
             const kWh_dto2 = dto.getValue(2);
-            const dieselLiters_dto2 = kWh_dto2 / constants.dieselToKWh; // TODO pull from constants
-            const codTons_dto2 = dieselLiters_dto2 / constants.values.trawler.ratio; // TODO pull from constants
-            const hydrogen_dto2 = calculateHydrogen(dieselLiters_dto2); // TODO pull from constants
+            const dieselLiters_dto2 = kWh_dto2 / globalThis.constantsField.dataset.getDieselToKwh(); //constants.dieselToKWh; // TODO pull from constants
+            const codTons_dto2 = dieselLiters_dto2 / globalThis.constantsField.dataset.getShipLitresPerTon(); // constants.values.trawler.ratio; // TODO pull from constants
+            const hydrogen_dto2 = kWh_dto2 * globalThis.constantsField.dataset.getKWhToHydrogen(); //calculateHydrogen(dieselLiters_dto2); // TODO pull from constants
 
             dto.setValue(0, codTons_dto2);
             dto.setValue(1, dieselLiters_dto2);
@@ -803,9 +806,9 @@ function updateTrawlerCalculations(dto, changedElement = null, newMass) {
             if(glob_temp_log)console.log("hydrogen changed, index: " + index);
             //update codTons, dieselLiters and kWh based on hydrogen
             const hydrogen_dto3 = dto.getValue(3);
-            const kWh_dto3 = hydrogen_dto3 / constants.kWhToHydrogen; // TODO pull from constants
-            const dieselLiters_dto3 = kWh_dto3 / constants.dieselToKWh; // TODO pull from constants
-            const codTons_dto3 = dieselLiters_dto3 / constants.values.trawler.ratio; // TODO pull from constants
+            const kWh_dto3 = hydrogen_dto3 / globalThis.constantsField.dataset.getKWhToHydrogen(); //constants.kWhToHydrogen; // TODO pull from constants
+            const dieselLiters_dto3 = kWh_dto3 / globalThis.constantsField.dataset.getDieselToKwh(); //constants.dieselToKWh; // TODO pull from constants
+            const codTons_dto3 = dieselLiters_dto3 / globalThis.constantsField.dataset.getShipLitresPerTon(); //constants.values.trawler.ratio; // TODO pull from constants
 
             dto.setValue(0, codTons_dto3);
             dto.setValue(1, dieselLiters_dto3);
@@ -857,7 +860,7 @@ function updateHarborCalculations(dto, changedElement = null, newMass) {
     if (changedElement === null){
         //induced update, changed different element, recalculate based on new mass
 
-        const kWh = newMass * constants.values.harbor.ratio; //calculate kWh based on new mass
+        const kWh = newMass * constants.values.harbor.ratio; //calculate kWh based on new mass //neednt be pulled from constantsfield; doesnt change
         dto.setValue(0, kWh);
         dto.getHtmlElement(0).querySelector('input').value = kWh; //update the html element to reflect the new value;
         //only needed because baseclass would do this after the recursive call, but because we are doing this recursively, and simulate a manual change of kWh, we need to do this here
@@ -877,7 +880,7 @@ function updateHarborCalculations(dto, changedElement = null, newMass) {
         case 0: //kWh changed
             //update hydrogen based on kWh
             const kWh_dto0 = dto.getValue(0);
-            const hydrogen_dto0 = kWh_dto0 * constants.kWhToHydrogen; // TODO pull from constants
+            const hydrogen_dto0 = kWh_dto0 * globalThis.constantsField.dataset.getKWhToHydrogen(); //constants.kWhToHydrogen; // TODO pull from constants
             dto.setValue(1, hydrogen_dto0);
             break;
 
@@ -885,7 +888,7 @@ function updateHarborCalculations(dto, changedElement = null, newMass) {
             if(glob_temp_log)console.log("hydrogen changed, index: " + index);
             //update kWh based on hydrogen
             const hydrogen_dto1 = dto.getValue(1);
-            const kWh_dto1 = hydrogen_dto1 / constants.kWhToHydrogen; // TODO pull from constants
+            const kWh_dto1 = hydrogen_dto1 / globalThis.constantsField.dataset.getKWhToHydrogen(); //constants.kWhToHydrogen; // TODO pull from constants
             dto.setValue(0, kWh_dto1);
             break;
         default:
@@ -894,7 +897,8 @@ function updateHarborCalculations(dto, changedElement = null, newMass) {
     }
 
     dto.setKWh(dto.getValue(0));
-    console.log(dto.getValue(0) / constants.values.harbor.ratio + "harbor update");
+    if(glob_temp_log)console.log("harbor kWh: " + dto.getValue(0));
+    if(glob_temp_log)console.log(dto.getValue(0) / constants.values.harbor.ratio + "harbor update");
     dto.setMass(dto.getValue(0) / constants.values.harbor.ratio);
     return dto.getValue(0) / constants.values.harbor.ratio;
 }
@@ -914,7 +918,7 @@ function updateTransportCalculations(dto, changedElement = null, newMass) {
 
     //dto contains: numTrucks, distance, kWh, H2(tons)
     if (changedElement === null) { //induced change; update mass and simulate mass dependent field change through single call recursion
-        const numTrucks = Math.ceil(newMass / constants.values.transport.tonsPerTruck); //calculate new number of trucks based on mass
+        const numTrucks = Math.ceil(newMass / constants.values.transport.tonsPerTruck); //calculate new number of trucks based on mass // neednt be pulled from constantsfield; doesnt change
         dto.setValue(0, numTrucks);
         dto.getHtmlElement(0).querySelector('input').value = numTrucks; //update the html element to reflect the new value;
         //only needed because baseclass, which would do this through the eventdriven approach, fires after the recursive call,
@@ -937,9 +941,9 @@ function updateTransportCalculations(dto, changedElement = null, newMass) {
                 const dto0_numTrucks = dto.getValue(0);
                 const dto0_distance = dto.getValue(1);
 
-                const dto0_dieselLitres = constants.values.transport.dieselPer100km * (dto0_numTrucks * dto0_distance / 100); //TODO pull from constants
-                const dto0_kWh = dto0_dieselLitres * constants.dieselToKWh; //TODO pull from constants
-                const dto0_hydrogen = calculateHydrogen(dto0_dieselLitres); //TODO pull from constants
+                const dto0_dieselLitres =  (dto0_numTrucks * dto0_distance / 100) * globalThis.constantsField.dataset.getTruckLitresPer100km() //constants.values.transport.dieselPer100km; //TODO pull from constants
+                const dto0_kWh = dto0_dieselLitres * globalThis.constantsField.dataset.getDieselToKwh(); //constants.dieselToKWh; //TODO pull from constants
+                const dto0_hydrogen = dto0_kWh * globalThis.constantsField.dataset.getKWhToHydrogen(); //calculateHydrogen(dto0_dieselLitres); //TODO pull from constants
 
                 dto.setValue(2, dto0_kWh);
                 dto.setValue(3, dto0_hydrogen);
@@ -955,10 +959,12 @@ function updateTransportCalculations(dto, changedElement = null, newMass) {
                 const dto2_kWh = dto.getValue(2);
                 const dto2_numTrucks = dto.getValue(0);
 
-                const dto2_hydrogen = dto2_kWh*constants.kWhToHydrogen; //TODO pull from constants
+                const dto2_hydrogen = dto2_kWh*globalThis.constantsField.dataset.getKWhToHydrogen(); //constants.kWhToHydrogen; //TODO pull from constants
                 //const dto2_distance = dto2_kWh / (dto2_numTrucks.getValue() * constants.values.transport.dieselPer100km / 100 * constants.dieselToKWh); //TODO pull from constants
                 //const dto2_distance = (dto2_kWh / dto2_numTrucks) * (1/constants.dieselToKWh) * constants.values.transport.dieselPer100km; //TODO pull from constants
-                const dto2_distance = ((dto2_kWh / dto2_numTrucks) / constants.dieselToKWh) / constants.values.transport.dieselPer100km*100; //TODO pull from constants
+
+                //const dto2_distance = ((dto2_kWh / dto2_numTrucks) / constants.dieselToKWh) / constants.values.transport.dieselPer100km*100; //TODO pull from constants
+                const dto2_distance = ((dto2_kWh / dto2_numTrucks) / globalThis.constantsField.dataset.getDieselToKwh()) / globalThis.constantsField.dataset.getTruckLitresPer100km()*100;
 
                 dto.setValue(1, dto2_distance);
                 dto.setValue(3, dto2_hydrogen);
@@ -969,8 +975,9 @@ function updateTransportCalculations(dto, changedElement = null, newMass) {
                 const dto3_hydrogen = dto.getValue(3);
                 const dto3_numTrucks = dto.getValue(0);
 
-                const dto3_kWh = dto3_hydrogen / constants.kWhToHydrogen; //TODO pull from constants
-                const dto3_distance = ((dto3_kWh / dto3_numTrucks) / constants.dieselToKWh) / constants.values.transport.dieselPer100km*100; //TODO pull from constants
+                const dto3_kWh = dto3_hydrogen / globalThis.constantsField.dataset.getKWhToHydrogen();//constants.kWhToHydrogen; //TODO pull from constants
+                //const dto3_distance = ((dto3_kWh / dto3_numTrucks) / constants.dieselToKWh) / constants.values.transport.dieselPer100km*100; //TODO pull from constants
+                const dto3_distance = ((dto3_kWh / dto3_numTrucks) / globalThis.constantsField.dataset.getDieselToKwh()) / globalThis.constantsField.dataset.getTruckLitresPer100km()*100;
                 dto.setValue(2, dto3_kWh);
                 dto.setValue(1, dto3_distance);
 
@@ -986,7 +993,7 @@ function updateTransportCalculations(dto, changedElement = null, newMass) {
 
     dto.setKWh(dto.getValue(2));
         //index case
-    dto.setMass(dto.getValue(0) * constants.values.transport.tonsPerTruck); //field not needed here
+    dto.setMass(dto.getValue(0) * constants.values.transport.tonsPerTruck); //field not needed here // neednt be pulled from constantsfield; doesnt change
     return dto.getValue(0) * constants.values.transport.tonsPerTruck;  //return calculated mass, needed if this updater method was the initial caller and the new mass is to be passed to the next updater method
 
 
@@ -1035,7 +1042,7 @@ function updateColdStorageCalculations(dto, changedElement = null, newMass) {
             //update kWh and hydrogen based on days
             const days_dto0 = dto.getValue(0);
             const kWh_dto0 = dto.getValue(1);
-            const hydrogen_dto0 = kWh_dto0 * days_dto0 * constants.kWhToHydrogen; // TODO pull from constants
+            const hydrogen_dto0 = kWh_dto0 * days_dto0 * globalThis.constantsField.dataset.getKWhToHydrogen();//constants.kWhToHydrogen; // TODO pull from constants
 
             dto.setValue(2, hydrogen_dto0);
             break;
@@ -1044,7 +1051,7 @@ function updateColdStorageCalculations(dto, changedElement = null, newMass) {
             //update days and hydrogen based on kWh per day
             const kWh_dto1 = dto.getValue(1);
             const days_dto1 = dto.getValue(0);
-            const hydrogen_dto1 = kWh_dto1 * days_dto1 * constants.kWhToHydrogen; // TODO pull from constants
+            const hydrogen_dto1 = kWh_dto1 * days_dto1 * globalThis.constantsField.dataset.getKWhToHydrogen();//constants.kWhToHydrogen; // TODO pull from constants
 
             dto.setValue(2, hydrogen_dto1);
             break;
@@ -1052,7 +1059,7 @@ function updateColdStorageCalculations(dto, changedElement = null, newMass) {
             if(glob_temp_log)console.log("hydrogen changed, index: " + index);
             //update days and kWh per day based on hydrogen
             const hydrogen_dto2 = dto.getValue(2);
-            const kWh_tot_dto2 = hydrogen_dto2 / constants.kWhToHydrogen; // TODO pull from constants
+            const kWh_tot_dto2 = hydrogen_dto2 /  globalThis.constantsField.dataset.getKWhToHydrogen();//constants.kWhToHydrogen; // TODO pull from constants
             const kWh_per_day_dto2 = dto.getValue(1);
             const days_dto2 = Math.ceil( kWh_tot_dto2/ kWh_per_day_dto2);
 
@@ -1069,32 +1076,33 @@ function updateColdStorageCalculations(dto, changedElement = null, newMass) {
 //TODO change so cod tons relates to new field numMarkets
 function updateSupermarketCalculations(dto, changedElement = null, newMass) {
     if(changedElement === globalThis.constantsField){ // custom edgecase to avoid having to change method signature; recalculate every constant dependent field
-        const codTons = dto.getValue(0);
-        //missing code
-        return;
+        const codTons = dto.getMass();
+        updateSupermarketCalculations(dto, null, codTons); //simulate change, to avoid redundant code; execute induced change
+        return codTons; // technically only needed for initial caller
     }
 
     //dto contains: days, kWh per day, H2(tons)
     if (changedElement === null) { //induced change; update mass and simulate mass dependent field change through single call recursion
-        //TODO test first if kwh/day has been changed before to avoid overwriting user changed settings unnoticed
+        dto.setMass(newMass);
 
-        //the cold storage is designed for 5000 tons; if that threshold is exceeded, additional kWh will be added;
-        // if the limit is subceeded, we calculate with a static power consumption of the maximum capacity
-        let kWhPerDay;
-        if(newMass > constants.values.coldStorage.maxCapacity) {
-            kWhPerDay = newMass * constants.values.coldStorage.maxCapRatio; //calculate new kWh per day based on mass
-        }else{
-            kWhPerDay = constants.values.coldStorage.kWhPerDay; //dto.getValue(1); //use the static value //TODO
-        }
+        /*const days = dto.getValue(0);
+        const kWhPerDay = dto.getValue(1);
+        const tonsPerDayPerSupermarket = globalThis.constantsField.dataset.getTonsSoldPerSupermarket();
+
+        const kWh = days * kWhPerDay * (newMass/tonsPerDayPerSupermarket);
+        const hydrogen = kWh * globalThis.constantsField.dataset.getKWhToHydrogen();
 
 
-        dto.setValue(1, kWhPerDay);
-        dto.getHtmlElement(1).querySelector('input').value = kWhPerDay; //update the html element to reflect the new value;
+
+        dto.setValue(2, hydrogen);
+        dto.getHtmlElement(2).querySelector('input').value = hydrogen; //update the html element to reflect the new value;
         //only needed because baseclass, which would do this through the eventdriven approach, fires after the recursive call,
         // but because the field has its old value, which is then read in when we simulate a manual change of codTons, we need to do this here
         //seems like an architectural flaw, but this workaround will do for now
 
-        updateColdStorageCalculations(dto, dto.getHtmlElement(1), newMass); //simulate manual change of numTrucks, to avoid redundant code
+        dto.setMass(newMass); // the only time we have access to newMass
+        */
+        updateSupermarketCalculations(dto, dto.getHtmlElement(1), newMass); //simulate manual change of numTrucks, to avoid redundant code
         return newMass; //return new mass; technically only needed for initial caller, like could be the case in below code
     }
 
@@ -1102,42 +1110,35 @@ function updateSupermarketCalculations(dto, changedElement = null, newMass) {
     dto.setValue(index, changedElement.querySelector('input').value);
 
     switch (index) {
-        case 0: //days changed
+        case 0: case 1://days or kWh per day changed; behave equal
             if(glob_temp_log)console.log("days changed, index: " + index);
             //update kWh and hydrogen based on days
             const days_dto0 = dto.getValue(0);
             const kWh_dto0 = dto.getValue(1);
-            const hydrogen_dto0 = kWh_dto0 * days_dto0 * constants.kWhToHydrogen; // TODO pull from constants
+            const hydrogen_dto0 = days_dto0 * kWh_dto0 * dto.getMass()/globalThis.constantsField.dataset.getKWhToHydrogen();
 
             dto.setValue(2, hydrogen_dto0);
             break;
-        case 1: //kWh per day changed
-            if(glob_temp_log)console.log("kWh per day changed, index: " + index);
-            //update days and hydrogen based on kWh per day
-            const kWh_dto1 = dto.getValue(1);
-            const days_dto1 = dto.getValue(0);
-            const hydrogen_dto1 = kWh_dto1 * days_dto1 * constants.kWhToHydrogen; // TODO pull from constants
 
-            dto.setValue(2, hydrogen_dto1);
-            break;
         case 2: //hydrogen changed -> extend days
             if(glob_temp_log)console.log("hydrogen changed, index: " + index);
             //update days and kWh per day based on hydrogen
             const hydrogen_dto2 = dto.getValue(2);
-            const kWh_tot_dto2 = hydrogen_dto2 / constants.kWhToHydrogen; // TODO pull from constants
+            const kWh_tot_dto2 = hydrogen_dto2 /  globalThis.constantsField.dataset.getKWhToHydrogen();
             const kWh_per_day_dto2 = dto.getValue(1);
-            const days_dto2 = Math.ceil( kWh_tot_dto2/ kWh_per_day_dto2);
+            const imaginaryNumMarkets = dto.getMass() / globalThis.constantsField.dataset.getTonsSoldPerSupermarket(); //all of this is flawed
+            const days_dto2 = Math.ceil(( kWh_tot_dto2/imaginaryNumMarkets) / kWh_per_day_dto2);
 
             dto.setValue(0, days_dto2);
             break;
 
     }
 
-    dto.setKWh(dto.getValue(1) * dto.getValue(0)); //set kWh to days * kWh per day
+    dto.setKWh(dto.getValue(2) / globalThis.constantsField.dataset.getKWhToHydrogen());
+    //dto.setMass(dto.getValue(0) * globalThis.constantsField.dataset.getTonsSoldPerSupermarket()); //mass set individually
 
     return -1 //changes here dont have an effect on mass, and i cant return the original mass; return -1 is a signal and edge case implemented in the base class and prevents recursive call
     //TODO return dtos mass instead; implement consistent mass field updating first
-
 }
 
 function updateConstants(dto, changedElement = null, newMass) {
