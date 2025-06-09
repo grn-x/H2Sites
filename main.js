@@ -1102,7 +1102,7 @@ function updateSupermarketCalculations(dto, changedElement = null, newMass) {
 
         dto.setMass(newMass); // the only time we have access to newMass
         */
-        updateSupermarketCalculations(dto, dto.getHtmlElement(1), newMass); //simulate manual change of numTrucks, to avoid redundant code
+        updateSupermarketCalculations(dto, dto.getHtmlElement(1), newMass); //simulate manual change of kWh Per day, to avoid redundant code
         return newMass; //return new mass; technically only needed for initial caller, like could be the case in below code
     }
 
@@ -1114,11 +1114,34 @@ function updateSupermarketCalculations(dto, changedElement = null, newMass) {
             if(glob_temp_log)console.log("days changed, index: " + index);
             //update kWh and hydrogen based on days
             const days_dto0 = dto.getValue(0);
-            const kWh_dto0 = dto.getValue(1);
-            const hydrogen_dto0 = days_dto0 * kWh_dto0 * dto.getMass()/globalThis.constantsField.dataset.getKWhToHydrogen();
+            const kWhPerDay_dto0 = dto.getValue(1);
+            const numImaginaryMarkets = Math.ceil(dto.getMass() / globalThis.constantsField.dataset.getTonsSoldPerSupermarket());
+            const kWh_tot_dto0 = days_dto0 * kWhPerDay_dto0 * numImaginaryMarkets; //Math.ceil(dto.getMass()/globalThis.constantsField.dataset.getKWhToHydrogen());
+            const hydrogen_dt0 = kWh_tot_dto0* globalThis.constantsField.dataset.getKWhToHydrogen();
 
-            dto.setValue(2, hydrogen_dto0);
+            if(glob_temp_log){
+            console.log("days: " + days_dto0);
+            console.log("kWh per day: " + kWhPerDay_dto0);
+            console.log("num markets: " + numImaginaryMarkets);
+            console.log("kWh tot: " + kWh_tot_dto0)
+            console.log("hydrogen dt0: " + hydrogen_dt0);
+            }
+
+            dto.setValue(2, hydrogen_dt0);
+
+            /*console.log("kwh tot: " + kWh_tot_dto0);
+            console.log("hydrogen dt0: " + hydrogen_dt0);
+            dto.setValue(2, hydrogen_dt0);
+            console.log("num markets: " + Math.ceil(dto.getMass()/globalThis.constantsField.dataset.getTonsSoldPerSupermarket()));
+            console.log("kWh per day: " + dto.getValue(1));
+            console.log("days: " + dto.getValue(0));
+            console.log("result: " + dto.getValue(2));
+            console.log("sum:" + dto.getValue(0)* dto.getValue(1) * Math.ceil(dto.getMass()/globalThis.constantsField.dataset.getTonsSoldPerSupermarket())*globalThis.constantsField.dataset.getKWhToHydrogen());
+            */
+
+
             break;
+
 
         case 2: //hydrogen changed -> extend days
             if(glob_temp_log)console.log("hydrogen changed, index: " + index);
