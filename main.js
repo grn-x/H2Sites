@@ -265,9 +265,9 @@ class BaseClassStripped {
 
     }
 
-    preUpdate(changedElement) {
+    preUpdate(changedElement, initialMass = 0) {
         if(glob_temp_log)console.warn('preupdate start');
-        const newMass = this.updaterMethod(this.dataset, changedElement, 0);
+        const newMass = this.updaterMethod(this.dataset, changedElement, initialMass); //initial mass only used for the first call
 
         // Pass 'this' as the originalCaller the node we started from
         //after updating the dto, load all the values into the html elements
@@ -284,9 +284,9 @@ class BaseClassStripped {
             this.next.updateNeighbors(newMass, this);
         }
 
-
-
     }
+
+
 
     recalculate(){
         this.updaterMethod();
@@ -448,7 +448,7 @@ function initializeFields() {
 
     const transport = new BaseClassStripped('Transport', '.interactive-field[data-info="Transport Info"]', new DTO([
         ['Trucks:', constants.values.transport.defaultTrucks, null, null, null],
-        ['Distance (km):', 100, null, null, null],
+        ['Distance (km):', 1500, null, null, null], //changed from 100km to absurd 1500 km
         ['kWh:', 0, null, null, null],
         ['H₂ (tons):', 0, null, null, null]
     ]), updateTransportCalculations, loopExitCallback);
@@ -587,7 +587,8 @@ function initializeFields() {
     };
 
 
-
+    //simulate initial update to populate the fields with a first wave of values (calculated from the placeholder constants passed)
+    trawler.preUpdate(null, constants.values.trawler.defaultCodCatch); // this will trigger the update chain
 }
 
 
@@ -847,6 +848,7 @@ function updateTrawlerCalculations(dto, changedElement = null, newMass) {
 
 function updateHarborCalculations(dto, changedElement = null, newMass) {
     if(changedElement === globalThis.constantsField){ // custom edgecase to avoid having to change method signature; recalculate every constant dependent field
+        //TODO!! buggy calculation when harbor kWh constant is changed! Urgently Fix this!
         const codTons = dto.getMass();
         const kWh = codTons * globalThis.constantsField.dataset.getHarborKWhPerTon();
 
